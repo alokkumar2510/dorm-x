@@ -1,0 +1,201 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  WARDEN
+  SECURITY
+  PARENT
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveType {
+  OUTPASS
+  VACATION
+  EMERGENCY
+}
+
+enum LogisticsStatus {
+  RECEIVED_AT_GATE
+  COLLECTED
+  RETURNED
+}
+
+model Hostel {
+  id        String          @id @default(uuid())
+  name      String
+  code      String          @unique // e.g. "PULAHA", "ROHINI", "VASHISTHA"
+  users     User[]
+  visitors  VisitorRecord[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model User {
+  id                String            @id @default(uuid())
+  email             String            @unique
+  password          String
+  name              String
+  role              Role
+  room              String?
+  phone             String?
+  
+  // Security integrations
+  faceEmbedding     String?           // JSON string representing float array embedding
+  rfidTag           String?           @unique
+  pushSubscription  String?           // JSON string representing WebPush subscription object
+  
+  // Multi-Hostel Relation
+  hostelId          String?
+  hostel            Hostel?           @relation(fields: [hostelId], references: [id], onDelete: SetNull)
+  
+  // Parent-Student Relation
+  parentId          String?
+  parent            User?             @relation("ParentToStudents", fields: [parentId], references: [id], onDelete: SetNull)
+  students          User[]            @relation("ParentToStudents")
+  
+  // Token management
+  refreshTokens     RefreshToken[]
+  
+  // Leave/Outpass relations
+  leaveRequests     LeaveRequest[]    @relation("StudentLeaveRequests")
+  approvedLeaves    LeaveRequest[]    @relation("WardenLeaveRequests")
+  exitScannedLeaves LeaveRequest[]    @relation("SecurityExitScans")
+  entryScannedLeaves LeaveRequest[]   @relation("SecurityEntryScans")
+  
+  // Gatekeeper relations
+  deliveries        LogisticsRecord[] @relation("StudentDeliveries")
+  loggedDeliveries  LogisticsRecord[] @relation("SecurityLoggedDeliveries")
+  visitorVisits     VisitorRecord[]   @relation("StudentVisits")
+  loggedVisitors    VisitorRecord[]   @relation("SecurityLoggedVisitors")
+  
+  // Notification logs
+  notifications     Notification[]    @relation("UserNotifications")
+  
+  // System setting updates (who updated it)
+  updatedSettings   SystemSettings[]  @relation("SettingUpdates")
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model LeaveRequest {
+  id              String      @id @default(uuid())
+  studentId       String
+  student         User        @relation("StudentLeaveRequests", fields: [studentId], references: [id], onDelete: Cascade)
+  startDate       DateTime
+  endDate         DateTime
+  reason          String
+  type            LeaveType
+  status          LeaveStatus @default(PENDING)
+  
+  // Warden approval
+  wardenId        String?
+  warden          User?       @relation("WardenLeaveRequests", fields: [wardenId], references: [id], onDelete: SetNull)
+  comments        String?
+  
+  // Security scanning exit/entry
+  exitTime        DateTime?
+  entryTime       DateTime?
+  
+  securityIdExit  String?
+  securityExit    User?       @relation("SecurityExitScans", fields: [securityIdExit], references: [id], onDelete: SetNull)
+  
+  securityIdEntry String?
+  securityEntry   User?       @relation("SecurityEntryScans", fields: [securityIdEntry], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model LogisticsRecord {
+  id             String          @id @default(uuid())
+  recipientId    String
+  recipient      User            @relation("StudentDeliveries", fields: [recipientId], references: [id], onDelete: Cascade)
+  vendor         String
+  trackingNumber String?
+  status         LogisticsStatus @default(RECEIVED_AT_GATE)
+  
+  securityId     String
+  security       User            @relation("SecurityLoggedDeliveries", fields: [securityId], references: [id], onDelete: Restrict)
+  
+  receivedAt     DateTime        @default(now())
+  collectedAt    DateTime?
+  
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model VisitorRecord {
+  id          String    @id @default(uuid())
+  visitorName String
+  room        String
+  purpose     String
+  
+  hostelId    String
+  hostel      Hostel    @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  
+  studentId   String?
+  student     User?     @relation("StudentVisits", fields: [studentId], references: [id], onDelete: SetNull)
+  
+  entryTime   DateTime  @default(now())
+  exitTime    DateTime?
+  
+  securityId  String
+  security    User      @relation("SecurityLoggedVisitors", fields: [securityId], references: [id], onDelete: Restrict)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   // "LEAVE_STATUS" | "SECURITY_SCAN" | "EMERGENCY" | "COURIER" | "ANNOUNCEMENT"
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model SystemSettings {
+  id               String   @id @default(uuid())
+  lockdownActive   Boolean  @default(false)
+  crowdAlertActive Boolean  @default(false)
+  
+  updatedById      String?
+  updatedBy        User?    @relation("SettingUpdates", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedAt        DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String   // e.g. "USER_LOGIN", "LEAVE_APPROVED", "SYSTEM_LOCKDOWN", "OFFLINE_SYNC"
+  actorId     String?
+  actorEmail  String?
+  ipAddress   String?
+  details     String?  // JSON string containing request data or changed values
+  createdAt   DateTime @default(now())
+}

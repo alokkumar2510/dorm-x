@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DORM-X | Quantum Campus Security</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <!-- QR Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap');
+        
+        :root {
+            --neon-blue: #22d3ee;
+            --neon-emerald: #10b981;
+            --neon-red: #f43f5e;
+            --matte-black: #020617;
+            --glass-white: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: var(--matte-black); 
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .glass-panel {
+            background: var(--glass-white);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .view-transition {
+            animation: cinematicFade 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes cinematicFade {
+            from { opacity: 0; transform: translateY(10px); filter: blur(5px); }
+            to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+
+        .sos-ripple {
+            position: relative;
+        }
+        .sos-ripple::before {
+            content: "";
+            position: absolute;
+            top: 50%; left: 50%; width: 100%; height: 100%;
+            background: var(--neon-red);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: -1;
+            animation: rippleMove 2s infinite;
+        }
+
+        @keyframes rippleMove {
+            0% { width: 100%; height: 100%; opacity: 0.5; }
+            100% { width: 200%; height: 200%; opacity: 0; }
+        }
+
+        .laser-line {
+            height: 2px;
+            background: var(--neon-blue);
+            box-shadow: 0 0 15px var(--neon-blue);
+            position: absolute;
+            width: 100%;
+            z-index: 20;
+            animation: laserSweep 3s ease-in-out infinite;
+        }
+
+        @keyframes laserSweep {
+            0%, 100% { top: 0%; opacity: 0; }
+            50% { top: 100%; opacity: 1; }
+        }
+
+        .shimmer {
+            background: linear-gradient(110deg, transparent 45%, rgba(34, 211, 238, 0.1) 50%, transparent 55%);
+            background-size: 200% 100%;
+            animation: shimmerMove 3s infinite;
+        }
+
+        @keyframes shimmerMove {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .hidden { display: none !important; }
+        input, select, textarea { 
+            background: rgba(255, 255, 255, 0.05) !important; 
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+        }
+        .lockdown-active { filter: grayscale(1) sepia(0.5) contrast(1.2); }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <!-- 1. AUTHENTICATION -->
+        <section id="login-page" class="min-h-screen flex items-center justify-center p-6 bg-black">
+            <div class="max-w-md w-full glass-panel rounded-[3rem] p-10 md:p-14 relative z-10 border-cyan-500/20">
+                <div class="text-center mb-10">
+                    <div class="w-16 h-16 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl mx-auto flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)] mb-6">
+                        <i data-lucide="shield-check" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <h1 class="text-4xl font-black tracking-tighter uppercase italic text-white">DORM-X</h1>
+                    <p class="text-cyan-500/50 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Quantum Shield v13</p>
+                </div>
+
+                <div id="login-container">
+                    <form onsubmit="window.handleLogin(event)" class="space-y-4">
+                        <input type="text" id="login-id" class="w-full px-6 py-4 rounded-2xl outline-none text-sm" placeholder="Entity ID / Reg No">
+                        <input type="password" id="login-pass" class="w-full px-6 py-4 rounded-2xl outline-none text-sm" placeholder="Passphrase">
+                        <div id="auth-error" class="hidden text-red-400 text-[10px] font-black text-center uppercase tracking-widest py-2">Link Failure</div>
+                        <button type="submit" class="w-full bg-cyan-600 text-white font-black py-4 rounded-2xl shadow-xl hover:brightness-110 active:scale-95 transition-all uppercase tracking-widest text-xs">Establish Link</button>
+                    </form>
+                    <p class="text-center mt-8 text-[10px] text-slate-500 font-bold uppercase tracking-widest">New Presence? <a href="javascript:void(0)" onclick="window.toggleSignup(true)" class="text-cyan-400 underline">Register Entity</a></p>
+                </div>
+
+                <div id="signup-container" class="hidden">
+                    <form onsubmit="window.handleSignup(event)" class="space-y-4">
+                        <input type="text" id="reg-name" placeholder="Full Identity Name" required class="w-full px-6 py-4 rounded-xl outline-none text-sm">
+                        <input type="text" id="reg-no" placeholder="Registration Cipher" required class="w-full px-6 py-4 rounded-xl outline-none text-sm uppercase">
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" id="reg-hostel" placeholder="Node/Hostel" required class="w-full px-6 py-4 rounded-xl outline-none text-sm">
+                            <input type="text" id="reg-room" placeholder="Port/Room" required class="w-full px-6 py-4 rounded-xl outline-none text-sm">
+                        </div>
+                        <button type="submit" class="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-xs tracking-widest">Initialize</button>
+                        <button type="button" onclick="window.toggleSignup(false)" class="w-full text-[9px] font-bold text-slate-500 uppercase mt-2">Back</button>
+                    </form>
+                </div>
+
+                <!-- DEMO QUICK FILL -->
+                <div class="mt-10 pt-8 border-t border-white/5 grid grid-cols-2 gap-2">
+                    <button onclick="window.quickFill('alok@2023BTECH001', 'ALOK@2023BTECH001')" class="p-2.5 glass-panel rounded-xl text-[8px] font-black text-slate-500 uppercase hover:text-cyan-400">Student</button>
+                    <button onclick="window.quickFill('security1@pulaha', 'SECURITY@PULAHA')" class="p-2.5 glass-panel rounded-xl text-[8px] font-black text-slate-500 uppercase hover:text-cyan-400">Security</button>
+                    <button onclick="window.quickFill('parent_2023btech001', 'PARENT_2023BTECH001')" class="p-2.5 glass-panel rounded-xl text-[8px] font-black text-slate-500 uppercase hover:text-cyan-400">Parent</button>
+                    <button onclick="window.quickFill('warden@pulaha', 'WARDEN@VSSUT')" class="p-2.5 glass-panel rounded-xl text-[8px] font-black text-slate-500 uppercase hover:text-cyan-400 text-center">Warden</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. DASHBOARD MAIN -->
+        <section id="dashboard" class="hidden min-h-screen flex flex-col">
+            <header class="h-24 sticky top-0 z-[60] px-10 glass-panel border-0 border-b border-white/5">
+                <div class="max-w-7xl mx-auto h-full flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-cyan-500 rounded-xl flex items-center justify-center">
+                            <i data-lucide="zap" class="text-white w-6 h-6"></i>
+                        </div>
+                        <span class="text-2xl font-black italic tracking-tighter uppercase text-white">DORM-X</span>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="text-right hidden sm:block">
+                            <p id="nav-name" class="font-bold text-sm text-white"></p>
+                            <p id="nav-role" class="text-[9px] font-black text-cyan-400 uppercase tracking-widest"></p>
+                        </div>
+                        <button onclick="window.handleLogout()" class="p-3 glass-panel rounded-2xl text-slate-400 hover:text-red-500 transition-all"><i data-lucide="log-out" class="w-5 h-5"></i></button>
+                    </div>
+                </div>
+            </header>
+            <main id="view-mount" class="p-8 max-w-7xl mx-auto w-full view-transition"></main>
+        </section>
+    </div>
+
+    <!-- QR MODAL -->
+    <div id="qr-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-6">
+        <div class="absolute inset-0 bg-black/95 backdrop-blur-2xl" onclick="window.closeQR()"></div>
+        <div class="relative glass-panel p-12 rounded-[4rem] max-w-sm w-full text-center border-cyan-500/20 shadow-[0_0_50px_rgba(34,211,238,0.2)]">
+            <h3 class="font-black text-2xl mb-8 text-white uppercase italic tracking-tighter">Access Token</h3>
+            <div class="bg-white p-6 rounded-[3rem] mb-10">
+                <img id="qr-image" src="" alt="QR" class="w-52 h-52 rounded-2xl mx-auto">
+            </div>
+            <button onclick="window.closeQR()" class="w-full bg-slate-900 text-cyan-400 border border-cyan-500/30 py-5 rounded-[2.5rem] font-black uppercase text-xs tracking-widest active:scale-95 transition-all">Dismiss</button>
+        </div>
+    </div>
+
+    <!-- TEMPLATES -->
+
+    <!-- STUDENT DASHBOARD -->
+    <template id="tpl-student">
+        <div class="space-y-12">
+            <!-- SOS BUTTON -->
+            <div class="flex flex-col items-center py-6">
+                <button onclick="window.triggerSOS()" class="sos-ripple w-56 h-56 bg-red-600 rounded-full flex flex-col items-center justify-center text-white shadow-[0_0_60px_rgba(220,38,38,0.4)] border-[10px] border-white/10 hover:scale-105 active:scale-95 transition-all">
+                    <i data-lucide="flame" class="w-12 h-12 mb-2"></i>
+                    <span class="text-3xl font-black tracking-tighter uppercase">SOS</span>
+                </button>
+                <p class="text-red-500 text-[9px] font-black uppercase tracking-[0.4em] mt-8 opacity-50">Critical Emergency Trigger</p>
+            </div>
+
+            <div class="grid lg:grid-cols-12 gap-10">
+                <div class="lg:col-span-7 space-y-8">
+                    <div class="glass-panel p-10 rounded-[3.5rem] relative overflow-hidden">
+                        <div class="absolute top-0 right-0 p-8 opacity-5"><i data-lucide="file-text" class="w-24 h-24 text-white"></i></div>
+                        <h3 class="text-xl font-black uppercase italic tracking-tighter text-white mb-8">Request Access</h3>
+                        <form onsubmit="window.applyLeave(event)" class="space-y-6">
+                            <div class="grid grid-cols-2 gap-4">
+                                <select id="l-type" class="w-full p-5 rounded-2xl outline-none font-bold text-sm"><option>Short Exit (30m)</option><option>Standard Outpass</option><option>Night Leave</option></select>
+                                <input type="text" id="l-reason" placeholder="Event Descriptor" required class="w-full p-5 rounded-2xl outline-none text-sm">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <input type="datetime-local" id="l-from" required class="w-full p-5 rounded-2xl outline-none text-xs">
+                                <input type="datetime-local" id="l-to" required class="w-full p-5 rounded-2xl outline-none text-xs">
+                            </div>
+                            <button type="submit" class="w-full py-5 bg-white text-black font-black rounded-[2.5rem] text-xs uppercase tracking-widest shadow-2xl hover:bg-slate-200 transition-all">Transmit Protocol</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5">
+                    <div class="glass-panel p-10 rounded-[3.5rem] h-full">
+                        <h3 class="text-xl font-black mb-8 uppercase italic tracking-tighter text-white">Event stream</h3>
+                        <div id="st-history" class="log-scroll space-y-4 pr-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- WARDEN DASHBOARD -->
+    <template id="tpl-warden">
+        <div class="space-y-12">
+            <div id="warden-summary" class="grid grid-cols-2 lg:grid-cols-4 gap-6"></div>
+            
+            <div class="grid lg:grid-cols-12 gap-10">
+                <div class="lg:col-span-8 glass-panel rounded-[3.5rem] overflow-hidden">
+                    <div class="p-10 border-b border-white/5 bg-white/[0.02]">
+                        <h3 class="font-black text-2xl uppercase tracking-tighter italic text-white leading-none">Command Queue</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-black/40 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                <tr><th class="px-12 py-8">Resident</th><th class="px-12 py-8">Cipher Intel</th><th class="px-12 py-8 text-right">Decision</th></tr>
+                            </thead>
+                            <tbody id="wd-mount" class="divide-y divide-white/5"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-4 space-y-8">
+                    <div class="glass-panel p-8 rounded-[3rem]">
+                        <h3 class="font-black text-[10px] uppercase tracking-widest text-slate-500 mb-8 flex items-center gap-3"><i data-lucide="grid" class="w-4 h-4 text-emerald-500"></i> Node Presence matrix</h3>
+                        <div id="wd-absence-grid" class="grid grid-cols-5 gap-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- SECURITY DASHBOARD -->
+    <template id="tpl-security">
+        <div id="security-wrap" class="grid lg:grid-cols-12 gap-10">
+            <div class="lg:col-span-4 space-y-8">
+                <div class="flex gap-4">
+                    <button id="lockdown-btn" onclick="window.toggleLockdown()" class="flex-1 py-6 bg-slate-900 border border-white/10 text-white font-black rounded-3xl text-[10px] uppercase flex items-center justify-center gap-3 shadow-2xl">
+                        <i data-lucide="lock" class="w-4 h-4"></i> Lockdown
+                    </button>
+                    <button id="crowd-btn" onclick="window.toggleCrowd()" class="flex-1 py-6 glass-panel border-white/10 text-white font-black rounded-3xl text-[10px] uppercase flex items-center justify-center gap-3">
+                        <i data-lucide="zap" class="w-4 h-4"></i> Crowded
+                    </button>
+                </div>
+
+                <div id="sc-emergency-mount"></div>
+                
+                <div class="glass-panel p-12 rounded-[5rem] flex flex-col items-center border-cyan-500/20 text-white">
+                    <h2 class="text-white font-black text-2xl mb-12 uppercase italic tracking-tighter leading-none">Gate Vision</h2>
+                    <div class="relative w-full aspect-square bg-black/60 rounded-[4rem] border border-white/10 overflow-hidden mb-10">
+                        <div class="laser-line"></div>
+                        <div id="reader"></div>
+                        <div id="camera-placeholder" class="h-full flex flex-col items-center justify-center p-10 text-center opacity-20">
+                            <i data-lucide="aperture" class="w-16 h-16 mb-4"></i>
+                            <p class="text-[10px] font-black uppercase tracking-[0.4em]">Optical Link Standby</p>
+                        </div>
+                    </div>
+                    <div class="w-full flex items-center gap-4 bg-white/5 p-5 rounded-3xl mb-8 border border-white/5">
+                        <input type="checkbox" id="bag-check" class="w-6 h-6 rounded-lg accent-cyan-500">
+                        <label class="text-slate-400 text-xs font-black uppercase tracking-widest">Inventory Checked</label>
+                    </div>
+                    <button onclick="window.startCamera()" class="w-full py-8 bg-cyan-600 text-white font-black rounded-[3rem] text-xs uppercase tracking-widest shadow-[0_20px_50px_rgba(34,211,238,0.2)] active:scale-95 transition-all">Engage Lens</button>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 grid md:grid-cols-2 gap-10 text-white">
+                <div class="glass-panel p-12 rounded-[4rem] flex flex-col">
+                    <h3 class="font-black text-xs uppercase tracking-[0.2em] text-slate-500 mb-10">Manual Ledger Cipher</h3>
+                    <form onsubmit="window.handleManualRegister(event)" class="space-y-4 mb-10">
+                        <input type="text" id="man-reg" placeholder="Student Cipher (Reg No)" required class="w-full p-5 rounded-3xl outline-none text-xs font-bold uppercase">
+                        <input type="text" id="man-purpose" placeholder="Protocol Purpose" required class="w-full p-5 rounded-3xl outline-none text-xs font-bold">
+                        <div class="grid grid-cols-2 gap-4">
+                            <button type="button" onclick="window.handleManualMove('exit')" class="bg-slate-800 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest border border-white/5">Force Exit</button>
+                            <button type="button" onclick="window.handleManualMove('entry')" class="bg-cyan-900 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest border border-cyan-500/30 text-cyan-400">Force Entry</button>
+                        </div>
+                    </form>
+                    <h3 class="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-6">Released Ciphers</h3>
+                    <div id="sc-approved-list" class="space-y-4 mb-8 overflow-y-auto max-h-40"></div>
+                    <h3 class="text-[10px] font-black text-teal-500 uppercase tracking-widest mb-6">Courier Logistics</h3>
+                    <div id="sc-logis-list" class="space-y-2"></div>
+                </div>
+
+                <div class="glass-panel p-12 rounded-[4rem] flex flex-col overflow-hidden">
+                    <h3 class="font-black text-xs uppercase tracking-[0.2em] text-slate-500 mb-10">Audit Archives</h3>
+                    <div id="sc-log-mount" class="log-scroll flex-grow pr-3 space-y-2"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- PARENT VIEW -->
+    <template id="tpl-parent">
+        <div class="max-w-3xl mx-auto space-y-12">
+            <div class="glass-panel p-16 rounded-[5rem] text-center relative overflow-hidden">
+                <div class="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/10 blur-[150px] rounded-full"></div>
+                <h2 id="p-child-name" class="text-6xl font-black text-white mb-4 leading-none uppercase italic tracking-tighter"></h2>
+                <div id="p-late-alert" class="mt-6"></div>
+                <div class="p-14 rounded-[4rem] bg-black/60 border border-white/10 shadow-[inset_0_0_50px_rgba(0,0,0,0.8)] mt-12 hologram-shimmer">
+                    <p class="text-[10px] font-black text-emerald-500 uppercase mb-5 tracking-[0.4em]">Presence Verification Stream</p>
+                    <p id="p-child-status" class="text-5xl font-black uppercase italic tracking-tighter text-white"></p>
+                </div>
+            </div>
+            <div class="glass-panel p-12 rounded-[4rem]">
+                <h3 class="font-black text-[10px] uppercase tracking-[0.4em] text-slate-500 mb-10 text-center">Protocol Safety events</h3>
+                <div id="p-notif-mount" class="space-y-6 max-w-xl mx-auto"></div>
+            </div>
+        </div>
+    </template>
+
+    <!-- SYSTEM CORE -->
+    <script>
+        // --- 1. DATA KERNEL ---
+        const SYSTEM_STUDENTS = [
+            { id: 'alok@2023btech001', name: 'Alok Kumar', reg: '2023BTECH001', hostel: 'Pulaha', room: '302', parentId: 'parent_2023btech001' },
+            { id: 'sneha@2023btech054', name: 'Sneha Rao', reg: '2023BTECH054', hostel: 'Rohini', room: '102', parentId: 'parent_2023btech054' }
+        ];
+
+        const ROLES = {
+            warden: { id: 'warden@pulaha', pass: 'WARDEN@VSSUT', name: 'Dr. S. Mohanty', role: 'CHIEF ADMINISTRATOR' },
+            security: { id: 'security1@pulaha', pass: 'SECURITY@PULAHA', name: 'Officer Singh', role: 'SENTINEL PRIME' }
+        };
+
+        // --- 2. PERSISTENCE ENGINE ---
+        let state = {
+            user: null,
+            users: JSON.parse(localStorage.getItem('dx_v27_users') || '[]'),
+            leaves: JSON.parse(localStorage.getItem('dx_v27_leaves') || '[]'),
+            notifs: JSON.parse(localStorage.getItem('dx_v27_notifs') || '[]'),
+            logistics: JSON.parse(localStorage.getItem('dx_v27_logis') || '[]'),
+            sys: JSON.parse(localStorage.getItem('dx_v27_sys') || '{"lockdown":false,"crowd":false,"notes":""}')
+        };
+
+        window.save = () => {
+            localStorage.setItem('dx_v27_users', JSON.stringify(state.users));
+            localStorage.setItem('dx_v27_leaves', JSON.stringify(state.leaves));
+            localStorage.setItem('dx_v27_notifs', JSON.stringify(state.notifs));
+            localStorage.setItem('dx_v27_logis', JSON.stringify(state.logistics));
+            localStorage.setItem('dx_v27_sys', JSON.stringify(state.sys));
+            window.renderView();
+        };
+
+        window.addEventListener('storage', () => {
+            state.users = JSON.parse(localStorage.getItem('dx_v27_users') || '[]');
+            state.leaves = JSON.parse(localStorage.getItem('dx_v27_leaves') || '[]');
+            state.notifs = JSON.parse(localStorage.getItem('dx_v27_notifs') || '[]');
+            state.logistics = JSON.parse(localStorage.getItem('dx_v27_logis') || '[]');
+            state.sys = JSON.parse(localStorage.getItem('dx_v27_sys') || '{"lockdown":false,"crowd":false,"notes":""}');
+            if(state.user) window.renderView();
+        });
+
+        // --- 3. WRAPPERS ---
+        window.quickFill = (id, pass) => {
+            const i = document.getElementById('login-id');
+            const p = document.getElementById('login-pass');
+            if(i && p) { i.value = id; p.value = pass; }
+        };
+        window.toggleSignup = (show) => {
+            document.getElementById('login-container')?.classList.toggle('hidden', show);
+            document.getElementById('signup-container')?.classList.toggle('hidden', !show);
+        };
+        window.closeQR = () => document.getElementById('qr-modal')?.classList.add('hidden');
+        window.handleLogout = () => {
+            if(window.html5QrScanner) { try { window.html5QrScanner.clear(); } catch(e) {} }
+            state.user = null;
+            document.getElementById('dashboard')?.classList.add('hidden');
+            document.getElementById('login-page')?.classList.remove('hidden');
+        };
+
+        // --- 4. CORE ACTIONS ---
+        window.triggerSOS = () => {
+            if(!confirm("ACTIVATE EMERGENCY BROADCAST?")) return;
+            state.leaves.push({
+                id: 'SOS-'+Date.now(), stId: state.user.id, stName: state.user.name, stReg: state.user.reg,
+                stHostel: state.user.hostel, stRoom: state.user.room, type: '🚨 CRITICAL SOS', status: 'EMERGENCY',
+                isEmergency: true, createdAt: new Date().toISOString()
+            });
+            state.notifs.push({ parentId: state.user.parentId, msg: `🚨 CRITICAL ALERT: Resident ${state.user.name} established emergency protocol.`, time: new Date().toISOString() });
+            window.save();
+        };
+
+        window.cancelRequest = (id) => {
+            const idx = state.leaves.findIndex(l => l.id === id);
+            if(idx !== -1 && state.leaves[idx].status === 'Pending') {
+                state.notifs.push({ parentId: state.user.parentId, msg: `Retraction: ${state.user.name} cancelled their outpass request.`, time: new Date().toISOString() });
+                state.leaves.splice(idx, 1);
+                window.save();
+            }
+        };
+
+        window.applyLeave = (e) => {
+            e.preventDefault();
+            const l = {
+                id: 'PX' + Date.now().toString().slice(-4), stId: state.user.id, stName: state.user.name, stReg: state.user.reg,
+                type: document.getElementById('l-type').value, reason: document.getElementById('l-reason').value,
+                dateRange: `${document.getElementById('l-from').value.replace('T',' ')} to ${document.getElementById('l-to').value.replace('T',' ')}`,
+                status: 'Pending', createdAt: new Date().toISOString()
+            };
+            state.leaves.push(l);
+            state.notifs.push({ parentId: state.user.parentId, msg: `Transmission: ${state.user.name} applied for Outpass.`, time: new Date().toISOString() });
+            window.save();
+        };
+
+        window.approve = (id, status) => {
+            const l = state.leaves.find(x => x.id === id);
+            if(!l) return;
+            l.status = status;
+            const all = [...SYSTEM_STUDENTS, ...state.users];
+            const s = all.find(st => st.id === l.stId);
+            if(s) state.notifs.push({ parentId: s.parentId, msg: `Update: Terminal response - Outpass was ${status.toUpperCase()}.`, time: new Date().toISOString() });
+            window.save();
+        };
+
+        window.move = (id, type) => {
+            const idx = state.leaves.findIndex(l => l.id === id);
+            if(idx === -1) return;
+            if(type === 'exit' && state.leaves[idx].exitTime) return alert("Security Block: Double Exit");
+            if(type === 'entry' && state.leaves[idx].entryTime) return alert("Security Block: Double Entry");
+
+            state.leaves[idx][type === 'exit' ? 'exitTime' : 'entryTime'] = new Date().toISOString();
+            state.leaves[idx].guard = state.user.name;
+            const all = [...SYSTEM_STUDENTS, ...state.users];
+            const s = all.find(st => st.id === state.leaves[idx].stId);
+            if(s) state.notifs.push({ parentId: s.parentId, msg: `Gate Signal: Resident has ${type==='exit'?'LEFT':'RE-ENTERED'}.`, time: new Date().toISOString() });
+            window.save();
+        };
+
+        window.handleManualMove = (type) => {
+            const rIn = document.getElementById('man-reg');
+            const pIn = document.getElementById('man-purpose');
+            const reg = rIn.value.toUpperCase();
+            const all = [...SYSTEM_STUDENTS, ...state.users];
+            const s = all.find(x => x.reg === reg);
+            if(!s) return alert("Cipher Invalid");
+
+            if(type === 'entry') {
+                const active = state.leaves.find(l => l.stId === s.id && l.exitTime && !l.entryTime);
+                if(active) { window.move(active.id, 'entry'); rIn.value = ""; pIn.value = ""; return; }
+            }
+
+            state.leaves.push({
+                id: 'MAN-'+Date.now(), stId: s.id, stName: s.name, stReg: s.reg, type: 'Manual Ledger',
+                reason: pIn.value, status: 'Approved',
+                exitTime: type === 'exit' ? new Date().toISOString() : new Date().toISOString(),
+                entryTime: type === 'entry' ? new Date().toISOString() : null,
+                createdAt: new Date().toISOString(), guard: state.user.name
+            });
+            rIn.value = ""; pIn.value = ""; window.save();
+        };
+
+        window.addDelivery = (e) => {
+            e.preventDefault();
+            state.logistics.push({ id: 'DEL'+Date.now(), vendor: document.getElementById('v-name').value, agent: document.getElementById('v-agent').value, entryTime: new Date().toISOString(), exitTime: null });
+            window.save();
+        };
+
+        window.exitLogis = (id) => {
+            const l = state.logistics.find(x => x.id === id);
+            if(l) l.exitTime = new Date().toISOString();
+            window.save();
+        };
+
+        window.toggleLockdown = () => { state.sys.lockdown = !state.sys.lockdown; window.save(); };
+        window.toggleCrowd = () => { state.sys.crowd = !state.sys.crowd; window.save(); };
+        window.parentLogCall = () => { state.notifs.push({ parentId: state.user.id, msg: `📞 Parent established call connection sync.`, time: new Date().toISOString() }); window.save(); alert("Child Informed"); };
+
+        window.startCamera = () => {
+            const ph = document.getElementById('camera-placeholder'); if(ph) ph.classList.add('hidden');
+            window.html5QrScanner = new Html5QrcodeScanner("reader", { fps: 20, qrbox: 250 });
+            window.html5QrScanner.render((txt) => {
+                const pid = txt.split('_').pop();
+                const leave = state.leaves.find(l => l.id === pid);
+                if(leave) { window.move(pid, !leave.exitTime ? 'exit' : 'entry'); window.html5QrScanner.clear(); }
+            });
+        };
+
+        window.simulateScan = () => {
+            const n = state.leaves.find(l => l.status === 'Approved' && (!l.exitTime || (l.exitTime && !l.entryTime)));
+            if (n) window.move(n.id, !n.exitTime ? 'exit' : 'entry');
+        };
+
+        window.showQR = (id) => {
+            const img = document.getElementById('qr-image');
+            if(img) img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=DORMX_AUTH_${id}`;
+            document.getElementById('qr-modal')?.classList.remove('hidden');
+        };
+
+        // --- 5. RENDER ENGINE ---
+        window.renderView = () => {
+            const mount = document.getElementById('view-mount');
+            if(!mount || !state.user) return;
+            mount.innerHTML = "";
+            const tpl = document.getElementById(`tpl-${state.user.roleType}`);
+            if(!tpl) return;
+            mount.appendChild(tpl.content.cloneNode(true));
+
+            // Populate Navigation
+            const navN = document.getElementById('nav-name'); if(navN) navN.innerText = state.user.name;
+            const navR = document.getElementById('nav-role'); if(navR) navR.innerText = state.user.roleType.toUpperCase();
+
+            if (state.user.roleType === 'student') {
+                const nd = document.getElementById('st-name-display'); if(nd) nd.innerText = state.user.name;
+                const h = state.leaves.filter(l => l.stId === state.user.id);
+                const hMount = document.getElementById('st-history');
+                if(hMount) hMount.innerHTML = h.reverse().map(l => `
+                    <div class="p-6 glass-panel rounded-[2rem] flex justify-between items-center mb-4 hologram-shimmer">
+                        <div class="text-xs">
+                            <p class="font-black ${l.isEmergency ? 'text-red-500' : 'text-cyan-500'} uppercase mb-1 text-base italic leading-tight">${l.type}</p>
+                            <p class="text-slate-500 font-bold">${l.dateRange}</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            ${l.status === 'Pending' ? `<button onclick="window.cancelRequest('${l.id}')" class="text-red-500 hover:scale-110 transition-transform"><i data-lucide="x-circle" class="w-6 h-6"></i></button>` : ''}
+                            <span class="px-4 py-1.5 bg-white/5 border border-white/5 rounded-full text-[8px] font-black uppercase text-slate-400">${l.status}</span>
+                            ${l.status === 'Approved' && !l.exitTime ? `<button onclick="window.showQR('${l.id}')" class="p-4 bg-cyan-600 text-white rounded-3xl active:scale-90 transition-all"><i data-lucide="qr-code"></i></button>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            if (state.user.roleType === 'warden') {
+                const today = new Date().toISOString().split('T')[0];
+                const stats = {
+                    exits: state.leaves.filter(l => l.exitTime && l.exitTime.includes(today)).length,
+                    out: state.leaves.filter(l => l.exitTime && !l.entryTime).length,
+                    sos: state.leaves.filter(l => l.isEmergency && !l.entryTime).length,
+                    apps: state.leaves.filter(l => l.status === 'Pending').length
+                };
+                const ws = document.getElementById('warden-summary');
+                if(ws) ws.innerHTML = `
+                    <div class="glass-panel p-10 rounded-[3rem] border-cyan-500/10"><p class="text-[9px] font-black text-slate-500 uppercase mb-2">Exits Today</p><p class="text-4xl font-black text-white italic">${stats.exits}</p></div>
+                    <div class="glass-panel p-10 rounded-[3rem] border-emerald-500/10"><p class="text-[9px] font-black text-slate-500 uppercase mb-2">Residents Out</p><p class="text-4xl font-black text-emerald-500 italic">${stats.out}</p></div>
+                    <div class="glass-panel p-10 rounded-[3rem] border-red-500/10 animate-sos-pulse"><p class="text-[9px] font-black text-slate-500 uppercase mb-2">SOS Active</p><p class="text-4xl font-black text-red-500 italic">${stats.sos}</p></div>
+                    <div class="glass-panel p-10 rounded-[3rem] border-white/5"><p class="text-[9px] font-black text-slate-500 uppercase mb-2">Protocols</p><p class="text-4xl font-black text-white italic">${stats.apps}</p></div>
+                `;
+                const wm = document.getElementById('wd-mount');
+                if(wm) wm.innerHTML = state.leaves.filter(l => l.status === 'Pending' && !l.isEmergency).map(l => `
+                    <tr>
+                        <td class="px-12 py-10 font-black text-white italic">${l.stName}<br><span class="text-[9px] text-slate-500 uppercase tracking-widest">${l.stReg}</span></td>
+                        <td class="px-12 py-10 text-xs text-cyan-400 font-bold">${l.type}<br><span class="text-slate-500 font-normal italic">${l.reason}</span></td>
+                        <td class="px-12 py-10 text-right flex gap-3 justify-end">
+                            <button onclick="window.approve('${l.id}', 'Rejected')" class="bg-red-500/10 text-red-500 border border-red-500/30 px-6 py-3 rounded-full text-[10px] font-black uppercase">Decline</button>
+                            <button onclick="window.approve('${l.id}', 'Approved')" class="bg-cyan-500 text-white px-8 py-3 rounded-full text-[10px] font-black uppercase">Authorize</button>
+                        </td>
+                    </tr>
+                `).join('') || '<tr><td colspan="3" class="p-20 text-center opacity-10 font-black uppercase">PROTOCOL IDLE</td></tr>';
+                
+                const ag = document.getElementById('wd-absence-grid');
+                if(ag) ag.innerHTML = [...SYSTEM_STUDENTS, ...state.users].map(s => {
+                    const isOut = state.leaves.some(l => l.stId === s.id && l.exitTime && !l.entryTime);
+                    return `<div class="aspect-square flex items-center justify-center rounded-2xl text-[10px] font-black ${isOut?'bg-cyan-500 text-black':'bg-white/5 text-slate-600'}">${s.room}</div>`;
+                }).join('');
+            }
+
+            if (state.user.roleType === 'security') {
+                const sW = document.getElementById('security-wrap'); if(state.sys.lockdown) sW?.classList.add('lockdown-active');
+                const emM = document.getElementById('sc-emergency-mount');
+                if(emM) emM.innerHTML = state.leaves.filter(l => l.isEmergency && !l.entryTime).map(l => `
+                    <div class="p-10 bg-red-600 text-white rounded-[4rem] animate-pulse-red mb-10 shadow-2xl border-4 border-red-500/50">
+                        <h4 class="font-black uppercase text-[10px] mb-4 flex items-center gap-3"><i data-lucide="alert-triangle"></i> EMERGENCY SOS</h4>
+                        <p class="font-black text-4xl italic tracking-tighter">${l.stName}</p>
+                        <p class="text-xs opacity-70 uppercase mb-8 font-black">Node ${l.stRoom} | Sec ${l.stHostel}</p>
+                        <button onclick="window.move('${l.id}','entry')" class="w-full bg-white text-red-600 font-black py-5 rounded-[2rem] text-xs uppercase tracking-widest">Mark Dispatched</button>
+                    </div>
+                `).join('');
+
+                const outM = document.getElementById('sc-entry-list');
+                if(outM) outM.innerHTML = state.leaves.filter(l => l.exitTime && !l.entryTime).map(l => {
+                    const late = new Date(l.dateRange.split(' to ')[1]).getTime() < Date.now();
+                    return `<div class="p-5 glass-panel rounded-[2rem] flex justify-between items-center mb-4 ${late?'neon-border-red':''}">
+                        <div class="text-[10px] font-black"><p class="text-cyan-400 mb-1">${l.stName}</p>${late?'<p class="text-red-500 uppercase">TIME EXCEEDED</p>':''}</div>
+                        <button onclick="window.move('${l.id}','entry')" class="bg-emerald-600 text-white px-8 py-3 rounded-full text-[10px] font-black uppercase">In</button>
+                    </div>`
+                }).join('');
+
+                const appM = document.getElementById('sc-approved-list');
+                if(appM) appM.innerHTML = state.leaves.filter(l => l.status === 'Approved' && !l.exitTime).map(l => `<div class="p-5 glass-panel rounded-[2.5rem] flex justify-between items-center mb-4"><span class="text-xs font-black text-white italic uppercase">${l.stName}</span><button onclick="window.move('${l.id}','exit')" class="bg-cyan-500 text-white px-8 py-3 rounded-full text-[10px] font-black uppercase">Out</button></div>`).join('');
+
+                const lgM = document.getElementById('sc-log-mount');
+                if(lgM) lgM.innerHTML = [...state.leaves.filter(l => l.exitTime), ...state.logistics.filter(l => l.exitTime)].sort((a,b) => new Date(b.exitTime) - new Date(a.exitTime)).slice(0,12).map(l => `<div class="p-4 rounded-2xl mb-2 text-[10px] flex justify-between items-center bg-white/[0.03] border border-white/5 hover:border-cyan-500/30 transition-all"><span class="text-slate-400 font-bold uppercase">${l.stName || l.vendor}</span><span class="text-cyan-500 font-black uppercase italic">${l.entryTime ? 'Entry' : 'Exit'}</span></div>`).join('');
+
+                const logisM = document.getElementById('sc-logis-list');
+                if(logisM) logisM.innerHTML = state.logistics.filter(l => !l.exitTime).map(l => `
+                    <div class="p-4 bg-white/5 border border-white/5 rounded-2xl flex justify-between items-center mb-2">
+                        <div class="text-[10px] font-bold"><p class="text-teal-400 uppercase mb-1">${l.vendor}</p><p class="opacity-40 uppercase tracking-widest font-normal">${l.agent}</p></div>
+                        <button onclick="window.exitLogis('${l.id}')" class="bg-white/10 text-white px-4 py-2 rounded-xl text-[8px] font-black uppercase">Log Exit</button>
+                    </div>
+                `).join('');
+            }
+
+            if (state.user.roleType === 'parent') {
+                const all = [...SYSTEM_STUDENTS, ...state.users];
+                const c = all.find(s => s.parentId === state.user.id);
+                if (c) {
+                    if(document.getElementById('p-child-name')) document.getElementById('p-child-name').innerText = c.name;
+                    const l = state.leaves.find(l => l.stId === c.id && l.exitTime && !l.entryTime);
+                    const statusEl = document.getElementById('p-child-status');
+                    if(statusEl) {
+                        statusEl.innerText = l ? "OFF SHIELD" : "INSIDE FACILITY";
+                        statusEl.className = `text-6xl font-black italic tracking-tighter ${l ? 'text-orange-500' : 'text-emerald-500'}`;
+                    }
+                    if(!l) document.getElementById('p-returned-banner')?.classList.remove('hidden');
+                    const nMount = document.getElementById('p-notif-mount');
+                    if(nMount) nMount.innerHTML = state.notifs.filter(n => n.parentId === state.user.id).sort((a,b) => new Date(b.time) - new Date(a.time)).reverse().map(n => `
+                        <div class="p-8 glass-panel rounded-[3rem] flex items-start gap-6 border-l-8 border-l-cyan-500 shadow-2xl">
+                            <div class="w-3 h-3 bg-cyan-500 rounded-full mt-2 shadow-[0_0_15px_#22d3ee]"></div>
+                            <div><p class="font-bold text-white text-lg tracking-tight mb-2 leading-tight">${n.msg}</p><p class="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em]">${new Date(n.time).toLocaleString()}</p></div>
+                        </div>
+                    `).join('');
+                }
+            }
+            lucide.createIcons();
+        };
+
+        window.handleLogin = (e) => {
+            e.preventDefault();
+            const id = document.getElementById('login-id').value.trim().toLowerCase();
+            const pass = document.getElementById('login-pass').value;
+            let u = null, r = '';
+            if (id === ROLES.warden.id && pass === ROLES.warden.pass) { u = ROLES.warden; r = 'warden'; }
+            else if (id === ROLES.security.id && pass === ROLES.security.pass) { u = ROLES.security; r = 'security'; }
+            else {
+                const all = [...SYSTEM_STUDENTS, ...state.users];
+                const s = all.find(x => x.id === id);
+                if (s && pass === s.name.split(' ')[0].toUpperCase() + '@' + s.reg) { u = s; r = 'student'; }
+                else if (id.startsWith('parent_')) {
+                    const ps = all.find(x => x.parentId === id);
+                    if (ps && pass === id.toUpperCase()) { u = { id, name: 'Parent of ' + ps.name, parentId: id }; r = 'parent'; }
+                }
+            }
+            if (u) { state.user = { ...u, roleType: r }; document.getElementById('login-page').classList.add('hidden'); document.getElementById('dashboard').classList.remove('hidden'); window.renderView(); }
+            else { document.getElementById('auth-error').classList.remove('hidden'); }
+        };
+
+        window.handleSignup = (e) => {
+            e.preventDefault();
+            const n = document.getElementById('reg-name').value;
+            const r = document.getElementById('reg-no').value.toUpperCase();
+            const newS = { id: r.toLowerCase() + '@vssut', name: n, reg: r, hostel: document.getElementById('reg-hostel').value, room: document.getElementById('reg-room').value, parentId: 'parent_' + r.toLowerCase() };
+            state.users.push(newS);
+            window.save();
+            window.toggleSignup(false);
+            window.quickFill(newS.id, n.split(' ')[0].toUpperCase() + '@' + r);
+        };
+
+        document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
+    </script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: var(--brand-color);
+  --color-brand-glow: var(--brand-glow);
+  --color-accent: var(--accent-color);
+  --color-danger: var(--danger-color);
+  
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-panel-bg: var(--panel-bg);
+  --color-panel-border: var(--panel-border);
+  
+  --spacing-2xs: 4px;
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+  --radius-5xl: 2.5rem;
+
+  --shadow-ambient: 0 8px 30px var(--shadow-color);
+  --shadow-glow: 0 0 20px var(--brand-glow);
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap');
+
+:root {
+  /* Dark mode (default - Quantum Cyber Theme) */
+  --bg-primary: #020617;
+  --bg-secondary: #090d16;
+  --card-bg: rgba(255, 255, 255, 0.02);
+  --card-border: rgba(255, 255, 255, 0.05);
+  --panel-bg: rgba(255, 255, 255, 0.03);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --brand-color: #22d3ee;
+  --brand-glow: rgba(34, 211, 238, 0.25);
+  --accent-color: #10b981;
+  --danger-color: #f43f5e;
+  --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+.light {
+  /* Light mode (Linear/Stripe/Apple Inspired) */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(15, 23, 42, 0.06);
+  --panel-bg: rgba(255, 255, 255, 0.7);
+  --panel-border: rgba(15, 23, 42, 0.08);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --brand-color: #6366f1; /* Stripe-like Indigo */
+  --brand-glow: rgba(99, 102, 241, 0.15);
+  --accent-color: #10b981;
+  --danger-color: #ef4444;
+  --shadow-color: rgba(15, 23, 42, 0.08);
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-ambient);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-ambient);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.view-transition {
+  animation: cinematicFade 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes cinematicFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.sos-ripple {
+  position: relative;
+}
+.sos-ripple::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  background: var(--danger-color);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  animation: rippleMove 2s infinite;
+}
+
+@keyframes rippleMove {
+  0% {
+    width: 100%;
+    height: 100%;
+    opacity: 0.5;
+  }
+  100% {
+    width: 200%;
+    height: 200%;
+    opacity: 0;
+  }
+}
+
+.laser-line {
+  height: 2px;
+  background: var(--brand-color);
+  box-shadow: var(--shadow-glow);
+  position: absolute;
+  width: 100%;
+  z-index: 20;
+  animation: laserSweep 3s ease-in-out infinite;
+}
+
+@keyframes laserSweep {
+  0%,
+  100% {
+    top: 0%;
+    opacity: 0;
+  }
+  50% {
+    top: 100%;
+    opacity: 1;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    110deg,
+    transparent 45%,
+    var(--brand-glow) 50%,
+    transparent 55%
+  );
+  background-size: 200% 100%;
+  animation: shimmerMove 3s infinite;
+}
+
+@keyframes shimmerMove {
+  0 {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+input,
+select,
+textarea {
+  background: var(--panel-bg) !important;
+  border: 1px solid var(--panel-border) !important;
+  color: var(--text-primary) !important;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--brand-color) !important;
+  box-shadow: 0 0 10px var(--brand-glow) !important;
+  outline: none;
+}
+
+.lockdown-active {
+  filter: grayscale(1) sepia(0.5) contrast(1.2);
+  transition: filter 0.5s ease;
+}
+
+/* Custom log scroll styling */
+.log-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.log-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.log-scroll::-webkit-scrollbar-thumb {
+  background: var(--panel-border);
+  border-radius: 99px;
+}
+.log-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Theme-adaptive overrides for class utilities */
+.bg-slate-950, .bg-black {
+  background-color: var(--bg-primary) !important;
+}
+.bg-slate-900 {
+  background-color: var(--bg-secondary) !important;
+}
+.bg-white {
+  background-color: var(--text-primary) !important; /* Invert primary button in light mode */
+}
+.text-black {
+  color: var(--bg-primary) !important; /* Invert text in primary button in light mode */
+}
+.text-white {
+  color: var(--text-primary);
+}
+
+/* Ensure white text inside colored buttons and overlays stays white */
+button.bg-cyan-600,
+button.bg-cyan-500,
+button.bg-emerald-600,
+button.bg-red-600,
+.bg-red-600 .text-white,
+.bg-cyan-600 .text-white,
+.bg-cyan-500 .text-white,
+.bg-emerald-600 .text-white,
+.bg-red-600,
+.bg-cyan-600,
+.bg-cyan-500,
+.bg-emerald-600 {
+  color: #ffffff !important;
+}
+
+.text-slate-400 {
+  color: var(--text-secondary) !important;
+}
+.text-slate-500 {
+  color: var(--text-muted) !important;
+}
+.text-cyan-400, .text-cyan-500 {
+  color: var(--brand-color) !important;
+}
+.text-emerald-500 {
+  color: var(--accent-color) !important;
+}
+.text-red-500 {
+  color: var(--danger-color) !important;
+}
+.border-cyan-500\/20, .border-cyan-500\/30 {
+  border-color: var(--brand-glow) !important;
+}
+.border-white\/5, .border-white\/10 {
+  border-color: var(--panel-border) !important;
+}
