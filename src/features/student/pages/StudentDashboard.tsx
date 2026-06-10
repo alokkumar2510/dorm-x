@@ -11,10 +11,11 @@ import {
   Volume2, 
   Clock, 
   TrendingUp,
-  MapPin
+  MapPin,
+  Settings
 } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
-import { getQrCodeUrl } from '../../../utils/qr';
+import { getQrCodeUrl, downloadQrCode } from '../../../utils/qr';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 
@@ -29,7 +30,7 @@ const ATTENDANCE_DATA = [
 ];
 
 export const StudentDashboard: React.FC = () => {
-  const { user, leaves, triggerSOS, cancelRequest, applyLeave, setActiveTab } = useAppState();
+  const { user, leaves, triggerSOS, cancelRequest, applyLeave, setActiveTab, showToast } = useAppState();
 
   const [leaveType, setLeaveType] = useState('Short Exit (30m)');
   const [reason, setReason] = useState('');
@@ -38,6 +39,26 @@ export const StudentDashboard: React.FC = () => {
   
   // Modal state
   const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
+
+  // New Student Facility states
+  const [macList, setMacList] = useState<string[]>(['00:1A:2B:3C:4D:5E']);
+  const [newMac, setNewMac] = useState('');
+  const [messMeal, setMessMeal] = useState('Dinner');
+  const [messQrId, setMessQrId] = useState<string | null>(null);
+
+  const addMac = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMac.trim() || macList.length >= 3) return;
+    setMacList([...macList, newMac.toUpperCase().trim()]);
+    setNewMac('');
+    showToast('MAC Address Whitelisted', 'success');
+  };
+
+  const generateMessCoupon = () => {
+    const couponId = `MESS-${Date.now()}`;
+    setMessQrId(couponId);
+    showToast('Mess Coupon QR Generated', 'success');
+  };
 
   if (!user) return null;
 
@@ -364,6 +385,99 @@ export const StudentDashboard: React.FC = () => {
             </div>
           </div>
 
+          {/* MESS/DINING QR PASSES */}
+          <div className="glass-panel p-6 rounded-[2.5rem] space-y-4">
+            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+              <QrCode className="w-4 h-4 text-[#00FFB2]" /> Mess Meal Tokens
+            </h3>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <select
+                  value={messMeal}
+                  onChange={(e) => setMessMeal(e.target.value)}
+                  className="flex-grow p-3 rounded-xl outline-none font-bold text-xs bg-white/5 border border-white/10 text-white"
+                >
+                  <option className="bg-slate-900">Breakfast</option>
+                  <option className="bg-slate-900">Lunch</option>
+                  <option className="bg-slate-900">Dinner</option>
+                </select>
+                <button
+                  onClick={generateMessCoupon}
+                  className="px-4 py-3 bg-[#00FFB2] hover:bg-[#00FFB2]/85 text-black font-black rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Generate
+                </button>
+              </div>
+              
+              {messQrId && (
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center gap-3">
+                  <div className="bg-white p-3 rounded-2xl">
+                    <img
+                      src={getQrCodeUrl(messQrId)}
+                      alt="Mess QR"
+                      className="w-28 h-28"
+                    />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] font-black text-white uppercase">{messMeal} Token Active</p>
+                    <p className="text-[7px] text-slate-500 font-mono mt-0.5">{messQrId}</p>
+                  </div>
+                  <button
+                    onClick={() => downloadQrCode(messQrId, `${user.name}_MESS_${messMeal}`)}
+                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-slate-300 rounded-lg text-[8px] font-black uppercase tracking-wider cursor-pointer"
+                  >
+                    Download Token
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* WI-FI MAC WHITELISTING */}
+          <div className="glass-panel p-6 rounded-[2.5rem] space-y-4">
+            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+              <Settings className="w-4 h-4 text-indigo-400" /> Device MAC Whitelist ({macList.length}/3)
+            </h3>
+            <form onSubmit={addMac} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. 00:1A:2B:3C:4D:5E"
+                  value={newMac}
+                  onChange={(e) => setNewMac(e.target.value)}
+                  pattern="^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
+                  title="Please enter a valid MAC address (e.g. 00:1A:2B:3C:4D:5E)"
+                  required
+                  className="flex-grow p-3 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={macList.length >= 3}
+                  className="px-4 py-3 bg-[#00E5FF] hover:bg-[#00E5FF]/85 disabled:bg-slate-800 disabled:text-slate-500 text-black font-black rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Whitelist
+                </button>
+              </div>
+              <div className="space-y-2">
+                {macList.map((mac, mIdx) => (
+                  <div key={mIdx} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex justify-between items-center text-[10px] font-bold text-slate-300">
+                    <span>{mac}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMacList(macList.filter((_, idx) => idx !== mIdx));
+                        showToast('MAC Address Removed', 'warning');
+                      }}
+                      className="text-red-400 hover:text-red-500 text-[8px] font-black uppercase"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </form>
+          </div>
+
         </div>
       </div>
 
@@ -374,12 +488,20 @@ export const StudentDashboard: React.FC = () => {
         title="Access Token"
       >
         {selectedLeaveId && (
-          <div className="bg-white p-6 rounded-[3rem] mb-10">
-            <img
-              src={getQrCodeUrl(selectedLeaveId)}
-              alt="QR Code Access Token"
-              className="w-52 h-52 rounded-2xl mx-auto"
-            />
+          <div className="flex flex-col items-center gap-6 pb-6">
+            <div className="bg-white p-6 rounded-[3rem]">
+              <img
+                src={getQrCodeUrl(selectedLeaveId)}
+                alt="QR Code Access Token"
+                className="w-52 h-52 rounded-2xl mx-auto"
+              />
+            </div>
+            <button
+              onClick={() => downloadQrCode(selectedLeaveId, user.name)}
+              className="px-6 py-3 bg-[#00E5FF] hover:bg-[#00E5FF]/80 text-black font-black rounded-xl text-xs uppercase tracking-widest cursor-pointer transition-all flex items-center gap-2"
+            >
+              Download Pass Image
+            </button>
           </div>
         )}
       </Modal>

@@ -44,6 +44,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return name.slice(0, 2).toUpperCase();
   };
 
+  const allowedTabs = {
+    warden: ['Dashboard', 'Leave Management', 'Warden Command', 'AI Assistant', 'Analytics', 'Reports', 'Notifications', 'Settings'],
+    security: ['Dashboard', 'Security Center', 'System Logs', 'AI Assistant', 'Notifications', 'Settings'],
+    student: ['Dashboard', 'Student QR Wallet', 'AI Assistant', 'Notifications', 'Settings'],
+    parent: ['Dashboard', 'Parent Portal', 'AI Assistant', 'Notifications', 'Settings'],
+  };
+
+  const currentRole = user?.roleType || 'student';
+  const roleAllowedTabs = allowedTabs[currentRole as keyof typeof allowedTabs] || allowedTabs.student;
+
   const navigationItems = [
     { name: 'Dashboard', path: '/warden', icon: Home },
     { name: 'Student QR Wallet', path: '/student', icon: QrCode },
@@ -102,7 +112,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
         {/* Navigation list */}
         <nav className="flex-grow overflow-y-auto py-4 px-3 space-y-1 log-scroll text-left">
-          {navigationItems.map((item, idx) => {
+          {navigationItems
+            .filter(item => roleAllowedTabs.includes(item.name))
+            .map((item, idx) => {
             const Icon = item.icon;
             const isActive = activeTab === item.name;
 
@@ -248,17 +260,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               className="space-y-8"
             >
               {activeTab === 'Dashboard' && children}
-              {activeTab === 'Student QR Wallet' && <StudentQRWalletView />}
-              {activeTab === 'Leave Management' && <LeaveManagementView />}
-              {activeTab === 'Warden Command' && <WardenCommandView />}
-              {activeTab === 'Security Center' && <SecurityCenterView />}
-              {activeTab === 'Parent Portal' && <ParentPortalView />}
-              {activeTab === 'AI Assistant' && <AIAssistantView />}
-              {activeTab === 'Analytics' && <AnalyticsView />}
-              {activeTab === 'Notifications' && <NotificationsView />}
-              {activeTab === 'Reports' && <ReportsView />}
-              {activeTab === 'Settings' && <SettingsView />}
-              {activeTab === 'System Logs' && <SystemLogsView />}
+              {activeTab === 'Student QR Wallet' && roleAllowedTabs.includes('Student QR Wallet') && <StudentQRWalletView />}
+              {activeTab === 'Leave Management' && roleAllowedTabs.includes('Leave Management') && <LeaveManagementView />}
+              {activeTab === 'Warden Command' && roleAllowedTabs.includes('Warden Command') && <WardenCommandView />}
+              {activeTab === 'Security Center' && roleAllowedTabs.includes('Security Center') && <SecurityCenterView />}
+              {activeTab === 'Parent Portal' && roleAllowedTabs.includes('Parent Portal') && <ParentPortalView />}
+              {activeTab === 'AI Assistant' && roleAllowedTabs.includes('AI Assistant') && <AIAssistantView />}
+              {activeTab === 'Analytics' && roleAllowedTabs.includes('Analytics') && <AnalyticsView />}
+              {activeTab === 'Notifications' && roleAllowedTabs.includes('Notifications') && <NotificationsView />}
+              {activeTab === 'Reports' && roleAllowedTabs.includes('Reports') && <ReportsView />}
+              {activeTab === 'Settings' && roleAllowedTabs.includes('Settings') && <SettingsView />}
+              {activeTab === 'System Logs' && roleAllowedTabs.includes('System Logs') && <SystemLogsView />}
             </motion.div>
           </main>
 

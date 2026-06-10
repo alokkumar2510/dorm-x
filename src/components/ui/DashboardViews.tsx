@@ -10,6 +10,7 @@ import {
   LogOut, LogIn, Plus, Send, HelpCircle, ChevronRight
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { getQrCodeUrl, downloadQrCode } from '@/utils/qr';
 
 // Mock charts data
 const ANALYTICS_TRENDS = [
@@ -113,14 +114,24 @@ export const StudentQRWalletView: React.FC = () => {
               </p>
             </div>
 
-            {/* Simulated Barcode/QR */}
-            <div className="bg-white p-4 rounded-2xl shadow-inner inline-block relative group">
-              <div className="w-32 h-32 flex items-center justify-center">
-                <QrCode className="w-28 h-28 text-slate-950" />
+            {/* Real QR Code */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="bg-white p-4 rounded-2xl shadow-inner inline-block relative group">
+                <img
+                  src={getQrCodeUrl(selectedStudent.id)}
+                  alt="Student QR Code"
+                  className="w-32 h-32 rounded-lg"
+                />
+                <div className="absolute inset-0 bg-slate-950/80 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-3 text-[8px] text-white font-bold uppercase tracking-widest leading-relaxed">
+                  Scan Pass Node at Gate Prime
+                </div>
               </div>
-              <div className="absolute inset-0 bg-slate-950/80 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-3 text-[8px] text-white font-bold uppercase tracking-widest leading-relaxed">
-                Scan Pass Node at Gate Prime
-              </div>
+              <button
+                onClick={() => downloadQrCode(selectedStudent.id, selectedStudent.name)}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-[#00E5FF] border border-[#00E5FF]/20 rounded-xl text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Download QR Code
+              </button>
             </div>
 
             <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">
@@ -248,100 +259,150 @@ export const WardenCommandView: React.FC = () => {
   const [curfew, setCurfew] = useState('9:00 PM');
 
   return (
-    <div className="grid lg:grid-cols-12 gap-8 text-left">
-      <div className="lg:col-span-5 glass-panel p-6 rounded-[2rem] space-y-6">
-        <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">System Control Nodes</h3>
-        
-        <div className="space-y-4">
-          <div className={`p-5 rounded-2xl border transition-all ${
-            sys.lockdown 
-              ? 'bg-red-950/20 border-red-500/30' 
-              : 'bg-white/[0.01] border-white/5'
-          }`}>
-            <div className="flex justify-between items-start">
-              <div>
-                <h4 className="text-xs font-black uppercase text-white">Curfew Lockdown Mode</h4>
-                <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase">Instant Gate Locking Cipher Activation</p>
+    <div className="space-y-8">
+      <div className="grid lg:grid-cols-12 gap-8 text-left">
+        <div className="lg:col-span-5 glass-panel p-6 rounded-[2rem] space-y-6">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">System Control Nodes</h3>
+          
+          <div className="space-y-4">
+            <div className={`p-5 rounded-2xl border transition-all ${
+              sys.lockdown 
+                ? 'bg-red-950/20 border-red-500/30' 
+                : 'bg-white/[0.01] border-white/5'
+            }`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="text-xs font-black uppercase text-white">Curfew Lockdown Mode</h4>
+                  <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase">Instant Gate Locking Cipher Activation</p>
+                </div>
+                <button 
+                  onClick={toggleLockdown}
+                  className={`w-12 h-6 rounded-full p-0.5 transition-all duration-300 cursor-pointer ${
+                    sys.lockdown ? 'bg-red-500' : 'bg-slate-800'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white transition-all transform ${
+                    sys.lockdown ? 'translate-x-6' : 'translate-x-0'
+                  }`} />
+                </button>
               </div>
-              <button 
-                onClick={toggleLockdown}
-                className={`w-12 h-6 rounded-full p-0.5 transition-all duration-300 cursor-pointer ${
-                  sys.lockdown ? 'bg-red-500' : 'bg-slate-800'
-                }`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white transition-all transform ${
-                  sys.lockdown ? 'translate-x-6' : 'translate-x-0'
-                }`} />
-              </button>
+              {sys.lockdown && (
+                <p className="text-[8px] text-red-400 font-extrabold uppercase mt-3 animate-pulse">
+                  🚨 System Lockdown Active: All NFC/QR reader nodes offline.
+                </p>
+              )}
             </div>
-            {sys.lockdown && (
-              <p className="text-[8px] text-red-400 font-extrabold uppercase mt-3 animate-pulse">
-                🚨 System Lockdown Active: All NFC/QR reader nodes offline.
-              </p>
-            )}
+
+            <div className={`p-5 rounded-2xl border transition-all ${
+              sys.crowd 
+                ? 'bg-amber-950/20 border-amber-500/30' 
+                : 'bg-white/[0.01] border-white/5'
+            }`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="text-xs font-black uppercase text-white">Gate Crowding Standby</h4>
+                  <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase">Curfew Curate Scan Throttling</p>
+                </div>
+                <button 
+                  onClick={toggleCrowd}
+                  className={`w-12 h-6 rounded-full p-0.5 transition-all duration-300 cursor-pointer ${
+                    sys.crowd ? 'bg-amber-500' : 'bg-slate-800'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white transition-all transform ${
+                    sys.crowd ? 'translate-x-6' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+              {sys.crowd && (
+                <p className="text-[8px] text-amber-400 font-extrabold uppercase mt-3 animate-pulse">
+                  ⚠️ Throttling Enabled: Scan spacing limits set to 15s.
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className={`p-5 rounded-2xl border transition-all ${
-            sys.crowd 
-              ? 'bg-amber-950/20 border-amber-500/30' 
-              : 'bg-white/[0.01] border-white/5'
-          }`}>
-            <div className="flex justify-between items-start">
-              <div>
-                <h4 className="text-xs font-black uppercase text-white">Gate Crowding Standby</h4>
-                <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase">Curfew Curate Scan Throttling</p>
-              </div>
-              <button 
-                onClick={toggleCrowd}
-                className={`w-12 h-6 rounded-full p-0.5 transition-all duration-300 cursor-pointer ${
-                  sys.crowd ? 'bg-amber-500' : 'bg-slate-800'
-                }`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white transition-all transform ${
-                  sys.crowd ? 'translate-x-6' : 'translate-x-0'
-                }`} />
-              </button>
-            </div>
-            {sys.crowd && (
-              <p className="text-[8px] text-amber-400 font-extrabold uppercase mt-3 animate-pulse">
-                ⚠️ Throttling Enabled: Scan spacing limits set to 15s.
-              </p>
-            )}
+          <div className="pt-4 border-t border-white/5 space-y-2">
+            <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Default Curfew Cutoff</label>
+            <select 
+              value={curfew}
+              onChange={(e) => setCurfew(e.target.value)}
+              className="w-full p-4 rounded-xl outline-none font-bold text-xs bg-white/5 border border-white/10 text-white"
+            >
+              <option value="8:00 PM" className="bg-slate-950">8:00 PM curfew</option>
+              <option value="9:00 PM" className="bg-slate-950">9:00 PM curfew (standard)</option>
+              <option value="10:00 PM" className="bg-slate-950">10:00 PM curfew</option>
+            </select>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-white/5 space-y-2">
-          <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Default Curfew Cutoff</label>
-          <select 
-            value={curfew}
-            onChange={(e) => setCurfew(e.target.value)}
-            className="w-full p-4 rounded-xl outline-none font-bold text-xs bg-white/5 border border-white/10 text-white"
-          >
-            <option value="8:00 PM" className="bg-slate-950">8:00 PM curfew</option>
-            <option value="9:00 PM" className="bg-slate-950">9:00 PM curfew (standard)</option>
-            <option value="10:00 PM" className="bg-slate-950">10:00 PM curfew</option>
-          </select>
+        <div className="lg:col-span-7 glass-panel p-6 rounded-[2rem] space-y-4">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">Campus Occupancy Detail</h3>
+          <div className="space-y-4">
+            {[
+              { block: 'Block A (Boys)', cap: 350, occ: 343, percent: 98, color: 'bg-red-500' },
+              { block: 'Block B (Girls)', cap: 280, occ: 257, percent: 92, color: 'bg-emerald-400' },
+              { block: 'Block G (Girls)', cap: 420, occ: 386, percent: 92, color: 'bg-emerald-400' }
+            ].map((b, i) => (
+              <div key={i} className="p-4 rounded-xl bg-white/[0.01] border border-white/5 space-y-2.5">
+                <div className="flex justify-between items-center text-xs font-black uppercase">
+                  <span className="text-white">{b.block}</span>
+                  <span className="text-slate-400">{b.occ} / {b.cap} ({b.percent}%)</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-950 overflow-hidden">
+                  <div className={`h-full ${b.color} rounded-full`} style={{ width: `${b.percent}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="lg:col-span-7 glass-panel p-6 rounded-[2rem] space-y-4">
-        <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">Campus Occupancy Detail</h3>
-        <div className="space-y-4">
-          {[
-            { block: 'Block A (Boys)', cap: 350, occ: 343, percent: 98, color: 'bg-red-500' },
-            { block: 'Block B (Girls)', cap: 280, occ: 257, percent: 92, color: 'bg-emerald-400' },
-            { block: 'Block G (Girls)', cap: 420, occ: 386, percent: 92, color: 'bg-emerald-400' }
-          ].map((b, i) => (
-            <div key={i} className="p-4 rounded-xl bg-white/[0.01] border border-white/5 space-y-2.5">
-              <div className="flex justify-between items-center text-xs font-black uppercase">
-                <span className="text-white">{b.block}</span>
-                <span className="text-slate-400">{b.occ} / {b.cap} ({b.percent}%)</span>
+      {/* Row 2: Overdue Curfew Violators & Dining stats */}
+      <div className="grid lg:grid-cols-12 gap-8 text-left">
+        {/* Overdue Curfew Violators */}
+        <div className="lg:col-span-6 glass-panel p-6 rounded-[2rem] space-y-4">
+          <h3 className="text-sm font-black uppercase text-red-400 tracking-wider flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" /> Curfew Violators (Overdue)
+          </h3>
+          <div className="space-y-3">
+            {[
+              { name: 'Rohan Dev', reg: '2023BTECH003', room: '201', exitTime: '7:15 PM', expected: '9:00 PM', timeDiff: 'Overdue by 15 mins' },
+              { name: 'Sameer Sen', reg: '2023BTECH014', room: '104', exitTime: '6:50 PM', expected: '9:00 PM', timeDiff: 'Overdue by 40 mins' }
+            ].map((v, idx) => (
+              <div key={idx} className="p-4 rounded-xl bg-red-950/5 border border-red-500/20 flex justify-between items-center text-xs font-semibold">
+                <div>
+                  <p className="text-white font-extrabold uppercase">{v.name}</p>
+                  <p className="text-[8px] text-slate-500 uppercase mt-0.5">{v.reg} | Room {v.room}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] text-red-400 font-black uppercase">{v.timeDiff}</p>
+                  <p className="text-[7.5px] text-slate-500 font-bold uppercase mt-0.5">Exited: {v.exitTime}</p>
+                </div>
               </div>
-              <div className="w-full h-2 rounded-full bg-slate-950 overflow-hidden">
-                <div className={`h-full ${b.color} rounded-full`} style={{ width: `${b.percent}%` }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Dining Stats */}
+        <div className="lg:col-span-6 glass-panel p-6 rounded-[2rem] space-y-4">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+            <Users className="w-4 h-4 text-[#00E5FF]" /> Mess Dining Scan Analytics
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl bg-white/[0.01] border border-white/5">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Dinner Claims Today</p>
+              <p className="text-xl font-black text-white mt-1">412 / 650</p>
+              <div className="w-full h-1.5 rounded-full bg-slate-950 overflow-hidden mt-2">
+                <div className="h-full bg-emerald-400 rounded-full" style={{ width: '63%' }} />
               </div>
             </div>
-          ))}
+            <div className="p-4 rounded-xl bg-white/[0.01] border border-white/5">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Average Scan Latency</p>
+              <p className="text-xl font-black text-white mt-1">2.8 sec</p>
+              <p className="text-[7px] text-[#00E5FF] font-black uppercase mt-2">NFC scanner active</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -352,7 +413,7 @@ export const WardenCommandView: React.FC = () => {
    4. SECURITY CENTER VIEW
    ========================================== */
 export const SecurityCenterView: React.FC = () => {
-  const { logistics, addDelivery, exitLogis } = useAppState();
+  const { logistics, addDelivery, exitLogis, showToast } = useAppState();
   const [vendor, setVendor] = useState('');
   const [agent, setAgent] = useState('');
 
@@ -362,6 +423,15 @@ export const SecurityCenterView: React.FC = () => {
   const [zoom, setZoom] = useState(1);
   const [targetLock, setTargetLock] = useState(true);
 
+  // New Security facility integrations
+  const [vehicles, setVehicles] = useState<Array<{ id: string; plate: string; driver: string; time: string }>>([
+    { id: '1', plate: 'OD-02-X-9988', driver: 'Rahul Sahu (Mess Staff)', time: new Date().toISOString() }
+  ]);
+  const [vehNo, setVehNo] = useState('');
+  const [driver, setDriver] = useState('');
+  const [scanningFace, setScanningFace] = useState(false);
+  const [scanResult, setScanResult] = useState(false);
+
   const handleCourierSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendor.trim() || !agent.trim()) return;
@@ -370,8 +440,38 @@ export const SecurityCenterView: React.FC = () => {
     setAgent('');
   };
 
+  const handleVehicleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vehNo.trim() || !driver.trim()) return;
+    setVehicles([...vehicles, {
+      id: Date.now().toString(),
+      plate: vehNo.toUpperCase().trim(),
+      driver: driver.trim(),
+      time: new Date().toISOString()
+    }]);
+    setVehNo('');
+    setDriver('');
+    showToast('Vehicle Entry Logged', 'success');
+  };
+
+  const exitVehicle = (id: string) => {
+    setVehicles(vehicles.filter(v => v.id !== id));
+    showToast('Vehicle Exit Checked', 'warning');
+  };
+
+  const simulateFaceScan = () => {
+    setScanningFace(true);
+    setScanResult(false);
+    setTimeout(() => {
+      setScanningFace(false);
+      setScanResult(true);
+      showToast('Visitor Biometrics Match: 98.4%', 'success');
+    }, 2000);
+  };
+
   return (
-    <div className="grid lg:grid-cols-12 gap-8 text-left">
+    <div className="space-y-8">
+      <div className="grid lg:grid-cols-12 gap-8 text-left">
       {/* CCTV Mock Grid */}
       <div className="lg:col-span-8 space-y-4">
         <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
@@ -562,6 +662,111 @@ export const SecurityCenterView: React.FC = () => {
           </div>
         </div>
       )}
+
+      </div>
+
+      {/* Row 2: Vehicle entry registry & Visitor face match */}
+      <div className="grid lg:grid-cols-12 gap-8 text-left font-sans mt-8">
+        {/* Vehicle Entry Logs */}
+        <div className="lg:col-span-8 glass-panel p-6 rounded-[2rem] space-y-4">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+            <Terminal className="w-4 h-4 text-[#00E5FF]" /> Vehicle Gate Sentinel Logs
+          </h3>
+          
+          {/* Form */}
+          <form onSubmit={handleVehicleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input
+              type="text"
+              placeholder="Plate Number (e.g. OD-02-Y-9988)"
+              value={vehNo}
+              onChange={(e) => setVehNo(e.target.value)}
+              required
+              className="p-3 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none"
+            />
+            <input
+              type="text"
+              placeholder="Driver Name & Purpose"
+              value={driver}
+              onChange={(e) => setDriver(e.target.value)}
+              required
+              className="p-3 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none"
+            />
+            <button
+              type="submit"
+              className="py-3 bg-[#00E5FF] hover:bg-[#00E5FF]/85 text-black font-black rounded-xl text-[10px] uppercase tracking-widest cursor-pointer transition-all"
+            >
+              Log Vehicle
+            </button>
+          </form>
+
+          {/* List */}
+          <div className="overflow-x-auto pt-2">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                  <th className="py-2.5 px-3">Vehicle No</th>
+                  <th className="py-2.5 px-3">Driver / Purpose</th>
+                  <th className="py-2.5 px-3">Entry Time</th>
+                  <th className="py-2.5 px-3 text-right">Gate Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vehicles.map((v) => (
+                  <tr key={v.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors font-semibold text-slate-300">
+                    <td className="py-3 px-3 text-white font-extrabold uppercase">{v.plate}</td>
+                    <td className="py-3 px-3">{v.driver}</td>
+                    <td className="py-3 px-3 text-slate-400">{formatDateString(v.time)}</td>
+                    <td className="py-3 px-3 text-right">
+                      <button
+                        onClick={() => exitVehicle(v.id)}
+                        className="px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[7px] font-black uppercase rounded cursor-pointer"
+                      >
+                        Log Exit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Visitor Face Match Scanner Simulator */}
+        <div className="lg:col-span-4 glass-panel p-6 rounded-[2rem] space-y-4">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" /> Face Biometrics Sync
+          </h3>
+          <div className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl space-y-4 text-center">
+            <div className="relative w-28 h-28 mx-auto rounded-2xl bg-black border border-white/10 overflow-hidden flex items-center justify-center">
+              {scanningFace ? (
+                <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(0,229,255,0.2)_0%,transparent_100%)] flex items-center justify-center">
+                  <div className="w-20 h-20 border-2 border-dashed border-[#00E5FF] rounded-full animate-spin" />
+                  <span className="absolute text-[8px] font-black text-[#00E5FF] uppercase tracking-widest">SCANNING</span>
+                </div>
+              ) : scanResult ? (
+                <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(16,185,129,0.2)_0%,transparent_100%)] flex flex-col items-center justify-center p-2 text-emerald-400">
+                  <ShieldCheck className="w-8 h-8 text-emerald-400 animate-bounce" />
+                  <span className="text-[7.5px] font-black uppercase tracking-widest mt-1">MATCH VERIFIED</span>
+                  <span className="text-[6.5px] text-slate-500 mt-0.5">Confidence: 98.4%</span>
+                </div>
+              ) : (
+                <Users className="w-10 h-10 text-slate-700 animate-pulse" />
+              )}
+            </div>
+            <div>
+              <p className="text-[9.5px] font-black text-white uppercase">Visitor Biometric Verification</p>
+              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Align visitor to primary camera frame node</p>
+            </div>
+            <button
+              onClick={simulateFaceScan}
+              disabled={scanningFace}
+              className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-500 text-black font-black rounded-xl text-[9px] uppercase tracking-widest transition-all cursor-pointer"
+            >
+              Scan & Verify Biometrics
+            </button>
+          </div>
+        </div>
+      </div>
 
     </div>
   );
