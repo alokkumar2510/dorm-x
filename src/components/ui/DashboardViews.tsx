@@ -43,6 +43,14 @@ export const StudentQRWalletView: React.FC = () => {
   const [searchVal, setSearchVal] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState('alok@2023btech001');
 
+  if (user?.roleType !== 'student') {
+    return (
+      <div className="p-8 text-center text-red-500 font-bold uppercase tracking-wider text-xs bg-red-950/10 border border-red-500/20 rounded-[2rem] max-w-4xl mx-auto">
+        Access Denied: Student Clearance Required
+      </div>
+    );
+  }
+
   const studentsList = [
     { id: 'alok@2023btech001', name: 'Alok Kumar', reg: '2023BTECH001', hostel: 'Pulaha', room: '302' },
     { id: 'neha@2023btech054', name: 'Neha Pani', reg: '2023BTECH054', hostel: 'Rohini', room: '102' }

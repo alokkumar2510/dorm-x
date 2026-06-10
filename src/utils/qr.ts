@@ -1,5 +1,3 @@
-import QRCode from 'qrcode';
-
 /**
  * Generates a local QR code Data URL asynchronously
  * @param text Content to encode
@@ -7,7 +5,9 @@ import QRCode from 'qrcode';
  */
 export const getQrCodeDataUrl = async (text: string): Promise<string> => {
   try {
-    return await QRCode.toDataURL(text, { width: 300, margin: 2 });
+    const QRCodeLib = await import('qrcode');
+    const qrcode = QRCodeLib.default || QRCodeLib;
+    return await qrcode.toDataURL(text, { width: 300, margin: 2 });
   } catch (err) {
     console.error('Failed to generate local QR Code:', err);
     return '';
@@ -28,7 +28,9 @@ export const getQrCodeUrl = (id: string): string => {
  */
 export const downloadQrCode = async (id: string, name: string): Promise<boolean> => {
   try {
-    const dataUrl = await QRCode.toDataURL(`DORMX_AUTH_${id}`, { 
+    const QRCodeLib = await import('qrcode');
+    const qrcode = QRCodeLib.default || QRCodeLib;
+    const dataUrl = await qrcode.toDataURL(`DORMX_AUTH_${id}`, { 
       width: 500, 
       margin: 2,
       color: {

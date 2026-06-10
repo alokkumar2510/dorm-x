@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import QRCode from 'qrcode';
 
 interface QRCodeImageProps {
   text: string;
@@ -14,19 +13,26 @@ export const QRCodeImage: React.FC<QRCodeImageProps> = ({ text, className = '', 
 
   useEffect(() => {
     let active = true;
-    QRCode.toDataURL(text, { 
-      width: 300, 
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#ffffff'
-      }
-    })
-      .then((url) => {
-        if (active) setDataUrl(url);
+    import('qrcode')
+      .then((QRCodeLib) => {
+        const qrcode = QRCodeLib.default || QRCodeLib;
+        qrcode.toDataURL(text, { 
+          width: 300, 
+          margin: 1,
+          color: {
+            dark: '#000000',
+            light: '#ffffff'
+          }
+        })
+          .then((url) => {
+            if (active) setDataUrl(url);
+          })
+          .catch((err) => {
+            console.error('Failed to generate local QR Code:', err);
+          });
       })
       .catch((err) => {
-        console.error('Failed to generate local QR Code:', err);
+        console.error('Failed to load qrcode library dynamically:', err);
       });
     return () => {
       active = false;
