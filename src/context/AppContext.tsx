@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { User, LeaveRequest, Notification, LogisticsRecord, SystemSettings } from '../types';
 import { loadState, saveState, type StorageState } from '../services/storage';
 import { SYSTEM_STUDENTS, ROLES } from '../constants';
+import { AnimatePresence } from 'framer-motion';
+import Toast from '../components/ui/Toast';
 
 interface AppContextType {
   user: User | null;
@@ -28,6 +30,11 @@ interface AppContextType {
   parentLogCall: () => void;
   theme: 'dark' | 'light';
   toggleTheme: () => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  toast: { message: string; type: 'success' | 'error' | 'warning' | 'info' } | null;
+  showToast: (message: string, type?: 'success' | 'error' | 'warning' | 'info') => void;
+  clearToast: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -35,6 +42,23 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [activeTab, setActiveTab] = useState('Dashboard');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setToast({ message, type });
+  };
+
+  const clearToast = () => setToast(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const [state, setState] = useState<StorageState>({
     users: [],
@@ -289,8 +313,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (leaveIndex === -1) return;
 
     const leave = state.leaves[leaveIndex];
-    if (type === 'exit' && leave.exitTime) return alert('Security Block: Double Exit');
-    if (type === 'entry' && leave.entryTime) return alert('Security Block: Double Entry');
+    if (type === 'exit' && leave.exitTime) {
+      showToast('Security Block: Double Exit Attempted', 'error');
+      return;
+    }
+    if (type === 'entry' && leave.entryTime) {
+      showToast('Security Block: Double Entry Attempted', 'error');
+      return;
+    }
 
     const updatedLeaves = [...state.leaves];
     updatedLeaves[leaveIndex] = {
@@ -325,7 +355,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const regUpper = reg.toUpperCase();
     const allStudents = [...SYSTEM_STUDENTS, ...state.users];
     const s = allStudents.find((x) => x.reg === regUpper);
-    if (!s) return alert('Cipher Invalid');
+    if (!s) {
+      showToast('Registration Cipher Invalid: Record not found', 'error');
+      return;
+    }
 
     if (type === 'entry') {
       const active = state.leaves.find((l) => l.stId === s.id && l.exitTime && !l.entryTime);
@@ -405,7 +438,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateState({
       notifs: [...state.notifs, newNotif],
     });
-    alert('Child Informed');
+    showToast('Link Sync Sent: Child Notified', 'success');
   };
 
   return (
@@ -433,9 +466,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         parentLogCall,
         theme,
         toggleTheme,
+        activeTab,
+        setActiveTab,
+        toast,
+        showToast,
+        clearToast,
       }}
     >
       {children}
+      <AnimatePresence>
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={clearToast}
+          />
+        )}
+      </AnimatePresence>
     </AppContext.Provider>
   );
 };

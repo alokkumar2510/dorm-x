@@ -34,11 +34,13 @@ export const SecurityDashboard: React.FC = () => {
     exitLogis,
     toggleLockdown,
     toggleCrowd,
+    showToast,
   } = useAppState();
 
   // Manual movement inputs
   const [manReg, setManReg] = useState('');
   const [manPurpose, setManPurpose] = useState('');
+  const [bagChecked, setBagChecked] = useState(false);
 
   // Courier inputs
   const [vendor, setVendor] = useState('');
@@ -58,6 +60,7 @@ export const SecurityDashboard: React.FC = () => {
   // Camera state
   const [cameraActive, setCameraActive] = useState(false);
   const [auditQuery, setAuditQuery] = useState('');
+
 
   // Sync visitors to localStorage
   const saveVisitors = (updated: VisitorRecord[]) => {
@@ -121,7 +124,7 @@ export const SecurityDashboard: React.FC = () => {
                 scanner.clear();
                 setCameraActive(false);
               } else {
-                alert('Invalid Security Token');
+                showToast('Invalid Security Token', 'error');
               }
             }
           },
@@ -138,11 +141,14 @@ export const SecurityDashboard: React.FC = () => {
 
   const handleManualSubmit = (e: React.FormEvent, type: 'entry' | 'exit') => {
     e.preventDefault();
-    if (!manReg.trim()) return alert('Student Reg No required');
-    handleManualMove(manReg, manPurpose, type);
+    if (!manReg.trim()) return showToast('Resident registration number required', 'warning');
+    const clearance = bagChecked ? ' [INVENTORY CLEARED]' : ' [INVENTORY NOT CHECKED]';
+    handleManualMove(manReg, manPurpose + clearance, type);
     setManReg('');
     setManPurpose('');
+    setBagChecked(false);
   };
+
 
   const handleCourierSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,7 +263,13 @@ export const SecurityDashboard: React.FC = () => {
             )}
           </div>
           <div className="w-full flex items-center gap-4 bg-white/5 p-4 rounded-xl mb-6 border border-white/5">
-            <input type="checkbox" id="bag-check" className="w-5 h-5 rounded border-white/10 accent-cyan-500 cursor-pointer" />
+            <input 
+              type="checkbox" 
+              id="bag-check" 
+              checked={bagChecked}
+              onChange={(e) => setBagChecked(e.target.checked)}
+              className="w-5 h-5 rounded border-white/10 accent-cyan-500 cursor-pointer" 
+            />
             <label htmlFor="bag-check" className="text-slate-400 text-[10px] font-black uppercase tracking-widest select-none cursor-pointer">
               Inventory Clearance Checked
             </label>

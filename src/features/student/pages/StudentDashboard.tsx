@@ -29,7 +29,7 @@ const ATTENDANCE_DATA = [
 ];
 
 export const StudentDashboard: React.FC = () => {
-  const { user, leaves, triggerSOS, cancelRequest, applyLeave } = useAppState();
+  const { user, leaves, triggerSOS, cancelRequest, applyLeave, setActiveTab } = useAppState();
 
   const [leaveType, setLeaveType] = useState('Short Exit (30m)');
   const [reason, setReason] = useState('');
@@ -105,9 +105,10 @@ export const StudentDashboard: React.FC = () => {
           {/* SASS OVERVIEW CARDS */}
           <div className="grid grid-cols-3 gap-4">
             <motion.div 
+              onClick={() => setActiveTab('Analytics')}
               whileHover={{ y: -4, scale: 1.01 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              className="glass-card p-6 rounded-2xl cursor-pointer"
+              className="glass-card p-6 rounded-2xl cursor-pointer hover:border-cyan-500/30 transition-all duration-200"
             >
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Attendance Rate</p>
               <div className="flex items-baseline gap-2">
@@ -116,9 +117,10 @@ export const StudentDashboard: React.FC = () => {
               </div>
             </motion.div>
             <motion.div 
+              onClick={() => setActiveTab('Student QR Wallet')}
               whileHover={{ y: -4, scale: 1.01 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              className="glass-card p-6 rounded-2xl cursor-pointer"
+              className="glass-card p-6 rounded-2xl cursor-pointer hover:border-cyan-500/30 transition-all duration-200"
             >
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Active Passes</p>
               <span className="text-3xl font-black tracking-tight text-white">
@@ -126,14 +128,16 @@ export const StudentDashboard: React.FC = () => {
               </span>
             </motion.div>
             <motion.div 
+              onClick={() => setActiveTab('Leave Management')}
               whileHover={{ y: -4, scale: 1.01 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              className="glass-card p-6 rounded-2xl cursor-pointer"
+              className="glass-card p-6 rounded-2xl cursor-pointer hover:border-cyan-500/30 transition-all duration-200"
             >
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Requests</p>
               <span className="text-3xl font-black tracking-tight text-white">{studentLeaves.length}</span>
             </motion.div>
           </div>
+
 
           {/* ATTENDANCE ANALYTICS CHART */}
           <div className="glass-panel p-8 rounded-[2.5rem]">

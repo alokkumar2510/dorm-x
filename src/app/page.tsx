@@ -45,7 +45,7 @@ const AnimatedCounter: React.FC<{ value: number; suffix?: string; delay?: number
 };
 
 export default function LandingPage() {
-  const { user, theme, toggleTheme } = useAppState();
+  const { user, theme, toggleTheme, showToast } = useAppState();
   const router = useRouter();
   const [activeModule, setActiveModule] = useState<'student' | 'warden' | 'security' | 'parent'>('student');
   const [sandboxQuery, setSandboxQuery] = useState('');
@@ -63,6 +63,119 @@ Try asking me:
   ]);
   const [sandboxLoading, setSandboxLoading] = useState(false);
   const sandboxEndRef = useRef<HTMLDivElement>(null);
+
+  // Landing page interactive showcase mockup states
+  const [mockLeaves, setMockLeaves] = useState([
+    { id: 1, name: 'Sameer Sen [103]', reason: 'Medical Checkup', type: 'OUTPASS', status: 'Pending' },
+    { id: 2, name: 'Rohan Dev [312]', reason: 'Weekend Visit Home', type: 'VACATION', status: 'Pending' }
+  ]);
+  const [showMockForm, setShowMockForm] = useState(false);
+  const [mockType, setMockType] = useState('Short Exit (30m)');
+  const [mockReason, setMockReason] = useState('');
+  const [mockSos, setMockSos] = useState(false);
+  
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanSuccess, setScanSuccess] = useState(false);
+  const [scannedStudent, setScannedStudent] = useState('');
+
+  const [liveScans, setLiveScans] = useState<Array<{ time: string; text: string; status: 'SUCCESS' | 'WARNING' | 'SYS' }>>([
+    { time: '10:45:01', text: 'NFC Core initialization handshake', status: 'SYS' },
+    { time: '10:45:03', text: 'NFC reader nodes reporting ONLINE', status: 'SYS' }
+  ]);
+
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+
+  useEffect(() => {
+    const names = ['Alok Kumar', 'Sameer Sen', 'Sneha Rao', 'Rohan Dev', 'Priyanka Das', 'Subham Patra'];
+    const blocks = ['Pulaha', 'Rohini', 'Arundhati', 'Block-A', 'Block-B'];
+    const types = ['EXIT Scan Approved', 'ENTRY Scan Logged'];
+    
+    const interval = setInterval(() => {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+      const name = names[Math.floor(Math.random() * names.length)];
+      const block = blocks[Math.floor(Math.random() * blocks.length)];
+      const type = types[Math.floor(Math.random() * types.length)];
+      const status = type.includes('EXIT') ? 'SUCCESS' : 'WARNING';
+      
+      setLiveScans(prev => [
+        ...prev.slice(-8), 
+        { time: timeStr, text: `${type}: ${name} [${block}]`, status: status as any }
+      ]);
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveTestimonial(prev => (prev + 1) % 3);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const testimonials = [
+    {
+      quote: 'DORM-X transformed our outpass approval workflow. Leaves that used to take 2 hours of queues and paperwork are now approved by wardens in seconds.',
+      author: 'Dr. Debabrata Giri',
+      role: 'Hostel Registrar, Tech Campus',
+      stars: 5
+    },
+    {
+      quote: 'The real-time parent WhatsApp notification sync has solved our safety concerns. Parents know exactly when students exit or enter the gate.',
+      author: 'Prof. Sandhya Rani',
+      role: 'Chief Warden, VSSUT block',
+      stars: 5
+    },
+    {
+      quote: 'The security log telemetry has speeded up visitor registration by 400%. We no longer use paper registers. Delivery log system is exceptional.',
+      author: 'Commandant R. K. Singh',
+      role: 'Chief Security Officer',
+      stars: 5
+    }
+  ];
+
+  const handleMockSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mockReason.trim()) return;
+    setMockLeaves(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        name: 'You [Mock Pulaha-203]',
+        reason: mockReason,
+        type: mockType.toUpperCase(),
+        status: 'Pending'
+      }
+    ]);
+    setMockReason('');
+    setShowMockForm(false);
+    showToast('Mock Outpass request filed! Click "Warden Module" tab to approve it.', 'success');
+  };
+
+  const handleMockApprove = (id: number) => {
+    setMockLeaves(prev => prev.map(l => l.id === id ? { ...l, status: 'Approved' } : l));
+  };
+
+  const handleMockReject = (id: number) => {
+    setMockLeaves(prev => prev.map(l => l.id === id ? { ...l, status: 'Rejected' } : l));
+  };
+
+  const triggerScan = () => {
+    setScanLoading(true);
+    setScanSuccess(false);
+    setTimeout(() => {
+      setScanLoading(false);
+      setScanSuccess(true);
+      const approved = mockLeaves.find(l => l.status === 'Approved');
+      if (approved) {
+        setScannedStudent(approved.name);
+      } else {
+        setScannedStudent('Alok Kumar [203]');
+      }
+    }, 1200);
+  };
+
 
   const handleCTA = () => {
     if (user) {
@@ -134,7 +247,7 @@ Try asking me:
   };
 
   return (
-    <div className="min-h-screen bg-[#030712] text-white overflow-x-hidden selection:bg-[#00E5FF]/20 selection:text-[#00E5FF]">
+    <div className="min-h-screen bg-[#030712] text-white overflow-x-clip selection:bg-[#00E5FF]/20 selection:text-[#00E5FF]">
       
       {/* 1. DYNAMIC AURORA & GRID MESH BACKGROUND */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
@@ -267,11 +380,70 @@ Try asking me:
           
           <div className="relative w-full h-full flex items-center justify-center transform perspective-1000 rotate-x-6 rotate-y-[-12] rotate-z-3 scale-95 md:scale-100">
             
+            {/* Pulsing network lines connecting the cards */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible" viewBox="0 0 500 500" fill="none" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="netGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#00E5FF" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#7C3AED" stopOpacity="0.3" />
+                </linearGradient>
+                <linearGradient id="netGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#7C3AED" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#00FFB2" stopOpacity="0.3" />
+                </linearGradient>
+              </defs>
+              
+              {/* Paths */}
+              <motion.path 
+                d="M 120 120 Q 280 140 400 180" 
+                stroke="url(#netGrad1)" 
+                strokeWidth="1.5" 
+                strokeDasharray="4 4" 
+                fill="none" 
+              />
+              <motion.path 
+                d="M 400 180 Q 420 300 370 380" 
+                stroke="url(#netGrad2)" 
+                strokeWidth="1.5" 
+                strokeDasharray="4 4" 
+                fill="none" 
+              />
+              <motion.path 
+                d="M 370 380 Q 260 410 150 400" 
+                stroke="url(#netGrad1)" 
+                strokeWidth="1.5" 
+                strokeDasharray="4 4" 
+                fill="none" 
+              />
+              <motion.path 
+                d="M 150 400 Q 110 260 120 120" 
+                stroke="url(#netGrad2)" 
+                strokeWidth="1.5" 
+                strokeDasharray="4 4" 
+                fill="none" 
+              />
+              
+              {/* Pulsing glowing nodes running along the paths */}
+              <circle r="3" fill="#00E5FF">
+                <animateMotion dur="6s" repeatCount="indefinite" path="M 120 120 Q 280 140 400 180" />
+              </circle>
+              <circle r="3" fill="#7C3AED">
+                <animateMotion dur="5s" repeatCount="indefinite" path="M 400 180 Q 420 300 370 380" />
+              </circle>
+              <circle r="3" fill="#00FFB2">
+                <animateMotion dur="7s" repeatCount="indefinite" path="M 370 380 Q 260 410 150 400" />
+              </circle>
+              <circle r="3" fill="#00E5FF">
+                <animateMotion dur="5.5s" repeatCount="indefinite" path="M 150 400 Q 110 260 120 120" />
+              </circle>
+            </svg>
+
             {/* Card 1: Student QR Pass */}
             <motion.div 
               animate={{ y: [0, -12, 0] }}
+              whileHover={{ scale: 1.05, zIndex: 50, borderColor: 'rgba(0, 229, 255, 0.4)', boxShadow: '0 0 25px rgba(0, 229, 255, 0.2)' }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute top-0 left-4 w-60 glass-panel p-5 rounded-[2rem] border-[#00E5FF]/20 shadow-2xl z-20"
+              className="absolute top-0 left-4 w-60 glass-panel p-5 rounded-[2rem] border-[#00E5FF]/20 shadow-2xl z-20 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -300,8 +472,9 @@ Try asking me:
             {/* Card 2: Warden Approvals Queue */}
             <motion.div 
               animate={{ y: [0, 10, 0] }}
+              whileHover={{ scale: 1.05, zIndex: 50, borderColor: 'rgba(124, 58, 237, 0.4)', boxShadow: '0 0 25px rgba(124, 58, 237, 0.2)' }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-              className="absolute bottom-6 right-4 w-64 glass-panel p-5 rounded-[2rem] border-white/10 shadow-2xl z-10"
+              className="absolute bottom-6 right-4 w-64 glass-panel p-5 rounded-[2rem] border-white/10 shadow-2xl z-10 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
                 <div className="flex items-center gap-2">
@@ -336,8 +509,9 @@ Try asking me:
             {/* Card 3: Security SOC Scanner Logs */}
             <motion.div 
               animate={{ x: [0, 8, 0] }}
+              whileHover={{ scale: 1.05, zIndex: 50, borderColor: 'rgba(0, 255, 178, 0.4)', boxShadow: '0 0 25px rgba(0, 255, 178, 0.2)' }}
               transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="absolute top-1/4 right-0 w-60 glass-panel p-4 rounded-[1.8rem] border-white/5 shadow-2xl z-30"
+              className="absolute top-1/4 right-0 w-60 glass-panel p-4 rounded-[1.8rem] border-white/5 shadow-2xl z-30 cursor-pointer"
             >
               <div className="flex items-center gap-2 mb-3 border-b border-white/5 pb-2">
                 <Activity className="w-3.5 h-3.5 text-[#00FFB2]" />
@@ -361,8 +535,9 @@ Try asking me:
             {/* Card 4: Parent Live Alerts */}
             <motion.div 
               animate={{ y: [0, -8, 0] }}
+              whileHover={{ scale: 1.05, zIndex: 50, borderColor: 'rgba(239, 68, 68, 0.4)', boxShadow: '0 0 25px rgba(239, 68, 68, 0.2)' }}
               transition={{ duration: 5.8, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-              className="absolute bottom-0 left-10 w-56 glass-panel p-4 rounded-[1.8rem] border-[#7C3AED]/20 shadow-2xl z-20"
+              className="absolute bottom-0 left-10 w-56 glass-panel p-4 rounded-[1.8rem] border-[#7C3AED]/20 shadow-2xl z-20 cursor-pointer"
             >
               <div className="flex items-center gap-2 mb-2.5">
                 <ShieldAlert className="w-3.5 h-3.5 text-red-400 animate-pulse" />
@@ -464,13 +639,18 @@ Try asking me:
             return (
               <motion.div 
                 key={idx}
-                whileHover={{ y: -6 }}
+                whileHover={{ 
+                  y: -6, 
+                  borderColor: 'rgba(0, 229, 255, 0.3)',
+                  boxShadow: '0 10px 30px rgba(0, 229, 255, 0.08)'
+                }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className={`glass-panel p-8 rounded-[2rem] border border-white/[0.06] ${item.borderColor} transition-all duration-300 text-left bg-gradient-to-br ${item.color} shadow-lg ${item.glow} group cursor-pointer relative overflow-hidden`}
+                className={`glass-panel p-8 rounded-[2rem] border border-white/[0.06] transition-all duration-300 text-left bg-gradient-to-br ${item.color} shadow-lg group cursor-pointer relative overflow-hidden`}
               >
+                <div className="absolute inset-0 bg-gradient-to-tr from-[#00E5FF]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.01] rounded-full translate-x-12 -translate-y-12 group-hover:scale-110 transition-transform" />
                 <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-[#00E5FF]/10 group-hover:border-[#00E5FF]/30 transition-all">
-                  <Icon className="w-6 h-6 text-[#00E5FF] group-hover:text-white transition-colors" />
+                  <Icon className="w-6 h-6 text-[#00E5FF] group-hover:text-white transition-all duration-300 group-hover:scale-110 group-hover:rotate-6" />
                 </div>
                 <h3 className="text-lg font-black uppercase tracking-tight text-white mb-3 flex items-center gap-2">
                   {item.title}
@@ -547,33 +727,106 @@ Try asking me:
                       <h4 className="text-base font-black uppercase text-white">Student Dashboard Mockup</h4>
                       <p className="text-[10px] text-[#00E5FF] font-black uppercase tracking-wider">Entity block: PULAHA | Room: 203</p>
                     </div>
-                    <button className="px-4 py-2 bg-red-500/15 border border-red-500/40 text-red-400 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer hover:bg-red-500 hover:text-white transition-colors">
-                      SOS Alert Standby
+                    <button 
+                      onClick={() => {
+                        setMockSos(!mockSos);
+                        if(!mockSos) {
+                          showToast('SOS Protocol Activated! In production, this instantly alerts warden & guards.', 'error');
+                        }
+                      }}
+                      className={`px-4 py-2 border rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors ${
+                        mockSos 
+                          ? 'bg-red-600 border-red-500 text-white animate-pulse' 
+                          : 'bg-red-500/15 border-red-500/40 text-red-400 hover:bg-red-500 hover:text-white'
+                      }`}
+                    >
+                      {mockSos ? 'SOS PROTOCOL ACTIVE' : 'SOS Alert Standby'}
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="glass-card p-5 rounded-2xl border-white/5">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Gate Pass Wallet</p>
-                      <div className="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
-                        <QrCode className="w-10 h-10 text-[#00E5FF]" />
-                        <div>
-                          <p className="text-[10px] font-bold text-white">Active Pass</p>
-                          <p className="text-[8px] text-emerald-400 font-extrabold uppercase">APPROVED - WAITING</p>
+
+                  {showMockForm ? (
+                    <form onSubmit={handleMockSubmit} className="glass-card p-5 rounded-2xl border-white/10 bg-black/40 space-y-4">
+                      <h5 className="text-[10px] font-black uppercase text-cyan-400">File Mock Outpass</h5>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black uppercase text-slate-500">Outpass Type</label>
+                          <select 
+                            value={mockType} 
+                            onChange={(e) => setMockType(e.target.value)}
+                            className="w-full p-2.5 rounded bg-slate-900 border border-white/10 text-[10px]"
+                          >
+                            <option>Short Exit (30m)</option>
+                            <option>Standard Outpass</option>
+                            <option>Night Leave</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black uppercase text-slate-500">Outpass Purpose</label>
+                          <input 
+                            type="text" 
+                            required
+                            placeholder="Reason for exit" 
+                            value={mockReason}
+                            onChange={(e) => setMockReason(e.target.value)}
+                            className="w-full p-2 rounded bg-slate-900 border border-white/10 text-[10px]" 
+                          />
                         </div>
                       </div>
+                      <div className="flex gap-2 justify-end">
+                        <button 
+                          type="button" 
+                          onClick={() => setShowMockForm(false)}
+                          className="px-3 py-1.5 border border-white/10 text-white rounded text-[8px] font-black uppercase"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="submit" 
+                          className="px-3 py-1.5 bg-[#00E5FF] text-black rounded text-[8px] font-black uppercase"
+                        >
+                          Submit Mock Request
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="glass-card p-5 rounded-2xl border-white/5 flex flex-col justify-between">
+                        <div>
+                          <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Gate Pass Wallet</p>
+                          <div className="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
+                            <QrCode className="w-10 h-10 text-[#00E5FF]" />
+                            <div>
+                              <p className="text-[10px] font-bold text-white">Active Pass</p>
+                              {mockLeaves.some(l => l.status === 'Approved') ? (
+                                <p className="text-[8px] text-emerald-400 font-extrabold uppercase">APPROVED - READY</p>
+                              ) : mockLeaves.some(l => l.status === 'Pending') ? (
+                                <p className="text-[8px] text-yellow-400 font-extrabold uppercase">PENDING APPROVAL</p>
+                              ) : (
+                                <p className="text-[8px] text-slate-500 font-extrabold uppercase">NO ACTIVE TOKEN</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {mockLeaves.some(l => l.status === 'Approved') && (
+                          <p className="text-[7px] text-[#00E5FF] font-bold mt-2 uppercase tracking-wide">Approved: Go to Security tab to scan QR</p>
+                        )}
+                      </div>
+                      <div className="glass-card p-5 rounded-2xl border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Attendance Rate</p>
+                        <p className="text-2xl font-black text-white">96.8%</p>
+                        <p className="text-[8px] text-[#00FFB2] font-extrabold uppercase mt-1">Status: Optimal Presence</p>
+                      </div>
+                      <div className="glass-card p-5 rounded-2xl border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">New Applications</p>
+                        <button 
+                          onClick={() => setShowMockForm(true)}
+                          className="w-full py-2.5 bg-gradient-to-r from-[#00E5FF] to-[#7C3AED] hover:brightness-110 text-white rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors border border-white/5"
+                        >
+                          File Outpass Pass
+                        </button>
+                      </div>
                     </div>
-                    <div className="glass-card p-5 rounded-2xl border-white/5">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Attendance Rate</p>
-                      <p className="text-2xl font-black text-white">96.8%</p>
-                      <p className="text-[8px] text-[#00FFB2] font-extrabold uppercase mt-1">Status: Optimal Presence</p>
-                    </div>
-                    <div className="glass-card p-5 rounded-2xl border-white/5">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">New Applications</p>
-                      <button className="w-full py-2.5 bg-gradient-to-r from-[#00E5FF] to-[#7C3AED] hover:brightness-110 text-white rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors border border-white/5">
-                        File Outpass Pass
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </motion.div>
               )}
 
@@ -591,31 +844,40 @@ Try asking me:
                       <h4 className="text-base font-black uppercase text-white">Warden Admin Control Desk</h4>
                       <p className="text-[10px] text-[#7C3AED] font-black uppercase tracking-wider">Managing block: PULAHA | ROHINI</p>
                     </div>
-                    <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-full text-[8px] font-black uppercase">2 Pending Outpasses</span>
+                    <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-full text-[8px] font-black uppercase">
+                      {mockLeaves.filter(l => l.status === 'Pending').length} Pending Outpasses
+                    </span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                     <div className="md:col-span-8 glass-card p-5 rounded-2xl border-white/5 space-y-3">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Leave Requests Pending</p>
-                      <div className="space-y-2.5">
-                        {[
-                          { name: 'Sameer Sen [103]', reason: 'Medical Checkup', type: 'OUTPASS' },
-                          { name: 'Rohan Dev [312]', reason: 'Weekend Visit Home', type: 'VACATION' }
-                        ].map((req, idx) => (
-                          <div key={idx} className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
-                            <div>
-                              <p className="text-[10px] font-bold text-white">{req.name}</p>
-                              <p className="text-[8px] text-slate-400">Reason: {req.reason}</p>
+                      <div className="space-y-2.5 max-h-[160px] overflow-y-auto pr-1 log-scroll">
+                        {mockLeaves.filter(l => l.status === 'Pending').length === 0 ? (
+                          <p className="text-[9px] text-slate-500 py-6 uppercase font-bold text-center">No pending leaves to approve</p>
+                        ) : (
+                          mockLeaves.filter(l => l.status === 'Pending').map((req) => (
+                            <div key={req.id} className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
+                              <div>
+                                <p className="text-[10px] font-bold text-white">{req.name}</p>
+                                <p className="text-[8px] text-slate-400">Reason: {req.reason}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => handleMockApprove(req.id)}
+                                  className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-md text-[8px] font-black uppercase cursor-pointer transition-colors"
+                                >
+                                  Approve
+                                </button>
+                                <button 
+                                  onClick={() => handleMockReject(req.id)}
+                                  className="px-3 py-1 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white rounded-md text-[8px] font-black uppercase cursor-pointer transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex gap-2">
-                              <button className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-md text-[8px] font-black uppercase cursor-pointer transition-colors">
-                                Approve
-                              </button>
-                              <button className="px-3 py-1 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white rounded-md text-[8px] font-black uppercase cursor-pointer transition-colors">
-                                Reject
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
                     </div>
                     <div className="md:col-span-4 glass-card p-5 rounded-2xl border-white/5 flex flex-col justify-between">
@@ -646,24 +908,45 @@ Try asking me:
                       <h4 className="text-base font-black uppercase text-white">Security Gatekeeper Console</h4>
                       <p className="text-[10px] text-[#00FFB2] font-black uppercase tracking-wider">Gate Status: SECURED & ON-LINE</p>
                     </div>
-                    <button className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors">
-                      Scan QR Pass
+                    <button 
+                      onClick={triggerScan}
+                      disabled={scanLoading}
+                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors"
+                    >
+                      {scanLoading ? 'Simulating Scanner...' : 'Scan QR Pass'}
                     </button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="glass-card p-5 rounded-2xl border-white/5 space-y-3">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Dynamic QR Access Verification</p>
-                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-4">
-                        <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-                        <div>
-                          <p className="text-[10px] font-black text-white uppercase tracking-wide">VERIFIED - GRANTED EXIT</p>
-                          <p className="text-[8px] text-slate-400 font-mono mt-0.5">ALOK KUMAR | REG: 2023BTECH001</p>
+                      {scanLoading ? (
+                        <div className="relative h-20 bg-black/40 rounded-xl overflow-hidden flex items-center justify-center border border-white/5">
+                          <div className="laser-line"></div>
+                          <span className="text-[8px] font-black uppercase tracking-widest text-[#00E5FF] animate-pulse">Engaging lens...</span>
                         </div>
-                      </div>
+                      ) : scanSuccess ? (
+                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-4">
+                          <CheckCircle2 className="w-8 h-8 text-emerald-400 animate-bounce" />
+                          <div>
+                            <p className="text-[10px] font-black text-white uppercase tracking-wide">VERIFIED - GRANTED EXIT</p>
+                            <p className="text-[8px] text-slate-400 font-mono mt-0.5">{scannedStudent}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-black/40 border border-dashed border-white/10 rounded-xl text-center py-6 text-slate-500 text-[8.5px] uppercase font-bold">
+                          Ready for scanning simulation
+                        </div>
+                      )}
                     </div>
                     <div className="glass-card p-5 rounded-2xl border-white/5 space-y-3">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Recent Logs</p>
                       <div className="space-y-2 font-mono text-[9px]">
+                        {scanSuccess && (
+                          <div className="flex justify-between text-slate-300">
+                            <span>[10:09] EXIT Scan {scannedStudent.split(' ')[0]}</span>
+                            <span className="text-emerald-400">GRANTED</span>
+                          </div>
+                        )}
                         <div className="flex justify-between text-slate-300">
                           <span>[09:41] EXIT Scan Alok Kumar</span>
                           <span className="text-emerald-400">GRANTED</span>
@@ -697,21 +980,37 @@ Try asking me:
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="glass-card p-5 rounded-2xl border-white/5">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Student Status</p>
-                      <span className="px-2.5 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/30 rounded-md text-[8px] font-black uppercase tracking-wider">
-                        Currently Out
-                      </span>
-                      <p className="text-[8px] text-slate-400 mt-3">Exited Pulaha Gate: 09:41 AM</p>
+                      {scanSuccess ? (
+                        <span className="px-2.5 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/30 rounded-md text-[8px] font-black uppercase tracking-wider">
+                          Currently Out
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-md text-[8px] font-black uppercase tracking-wider">
+                          Inside Hostel
+                        </span>
+                      )}
+                      <p className="text-[8px] text-slate-400 mt-3">{scanSuccess ? 'Exited Main Gate: 10:09 AM' : 'No movements logged today'}</p>
                     </div>
                     <div className="glass-card p-5 rounded-2xl border-white/5">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Leave Duration</p>
-                      <p className="text-lg font-black text-white">Short Outpass</p>
+                      <p className="text-lg font-black text-white">
+                        {mockLeaves.some(l => l.status === 'Approved') ? 'Short Outpass' : 'No Active Pass'}
+                      </p>
                       <p className="text-[8px] text-slate-400 mt-1">Expected Return: 05:00 PM</p>
                     </div>
                     <div className="glass-card p-5 rounded-2xl border-white/5 space-y-2">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Parent Notifications Logs</p>
-                      <div className="text-[8px] text-slate-300 font-mono">
-                        <p>[09:41 AM] WhatsApp Sync Delivered</p>
-                        <p>[09:41 AM] SMS Alert Delivered</p>
+                      <div className="text-[8px] text-slate-300 font-mono space-y-1">
+                        {scanSuccess && (
+                          <>
+                            <p className="text-[#00FFB2]">[10:09 AM] Mock Scan: Exit Verified</p>
+                            <p className="text-slate-500">[10:09 AM] WhatsApp Sync Delivered</p>
+                          </>
+                        )}
+                        {mockLeaves.some(l => l.status === 'Approved') && (
+                          <p className="text-[#00E5FF]">[10:00 AM] Mock Approval: Warden Authorized Outpass</p>
+                        )}
+                        <p className="text-slate-500">[09:41 AM] SMS Alert Delivered</p>
                       </div>
                     </div>
                   </div>
@@ -757,67 +1056,104 @@ Try asking me:
           ))}
         </div>
 
-        {/* Custom Visual SVG Telemetry Chart */}
-        <div className="glass-panel p-6 sm:p-10 rounded-[2.5rem] border-white/10 bg-gradient-to-r from-white/[0.01] via-transparent to-transparent text-left relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 w-64 h-64 bg-[#00E5FF]/5 rounded-full filter blur-3xl pointer-events-none" />
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
-            <div>
-              <h4 className="text-xs font-black uppercase text-slate-400 tracking-[0.2em] mb-1">
-                Access Verification Peak Telemetry
-              </h4>
-              <p className="text-[9px] text-slate-500 font-bold uppercase">Weekly logs for exit/entry scans aggregated across security nodes</p>
+        {/* Custom Visual SVG Telemetry Chart & NOC Scanner Terminal */}
+        <div className="grid lg:grid-cols-12 gap-8">
+          
+          {/* Telemetry Graph Column */}
+          <div className="lg:col-span-8 glass-panel p-6 sm:p-10 rounded-[2.5rem] border-white/10 bg-gradient-to-r from-white/[0.01] via-transparent to-transparent text-left relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 w-64 h-64 bg-[#00E5FF]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
+              <div>
+                <h4 className="text-xs font-black uppercase text-slate-400 tracking-[0.2em] mb-1">
+                  Access Verification Peak Telemetry
+                </h4>
+                <p className="text-[9px] text-slate-500 font-bold uppercase">Weekly logs for exit/entry scans aggregated across security nodes</p>
+              </div>
+              <div className="flex gap-4 font-mono text-[9px] text-slate-400">
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#00E5FF]" /> Exit Gates</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#7C3AED]" /> Entry Gates</span>
+              </div>
             </div>
-            <div className="flex gap-4 font-mono text-[9px] text-slate-400">
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#00E5FF]" /> Exit Gates</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#7C3AED]" /> Entry Gates</span>
+
+            <div className="h-60 w-full relative">
+              <svg className="w-full h-full" viewBox="0 0 1000 240" fill="none" preserveAspectRatio="none">
+                {/* Grids */}
+                {[40, 80, 120, 160, 200].map((yVal) => (
+                  <line key={yVal} x1="0" y1={yVal} x2="1000" y2={yVal} stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                ))}
+                
+                {/* Telemetry Path 1 (Exits) */}
+                <motion.path
+                  d="M 0 180 Q 150 140 300 100 T 600 60 T 900 120 L 1000 160"
+                  stroke="#00E5FF"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  fill="none"
+                  initial="hidden"
+                  animate="visible"
+                  variants={pathVariants}
+                />
+                {/* Telemetry Path 2 (Entries) */}
+                <motion.path
+                  d="M 0 210 Q 150 160 300 130 T 600 110 T 900 70 L 1000 110"
+                  stroke="#7C3AED"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  fill="none"
+                  initial="hidden"
+                  animate="visible"
+                  variants={pathVariants}
+                />
+                
+                {/* Glowing circles on line peaks */}
+                <circle cx="300" cy="100" r="5" fill="#00E5FF" className="animate-ping" />
+                <circle cx="600" cy="60" r="5" fill="#00E5FF" />
+                <circle cx="900" cy="70" r="5" fill="#7C3AED" className="animate-ping" />
+              </svg>
+              <div className="absolute bottom-0 left-0 right-0 flex justify-between font-mono text-[8px] text-slate-500 pt-3 border-t border-white/5">
+                <span>MON</span>
+                <span>TUE</span>
+                <span>WED</span>
+                <span>THU</span>
+                <span>FRI</span>
+                <span>SAT</span>
+                <span>SUN</span>
+              </div>
             </div>
           </div>
 
-          <div className="h-60 w-full relative">
-            <svg className="w-full h-full" viewBox="0 0 1000 240" fill="none" preserveAspectRatio="none">
-              {/* Grids */}
-              {[40, 80, 120, 160, 200].map((yVal) => (
-                <line key={yVal} x1="0" y1={yVal} x2="1000" y2={yVal} stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+          {/* Live NOC Scanner Terminal */}
+          <div className="lg:col-span-4 glass-panel p-6 sm:p-8 rounded-[2.5rem] border-white/10 bg-black/40 flex flex-col justify-between h-auto min-h-[340px]">
+            <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
+              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#00FFB2] animate-ping" /> Live NOC Scanner
+              </h4>
+              <span className="text-[7px] font-mono text-cyan-400 font-extrabold uppercase">DAEMON v2.7</span>
+            </div>
+            
+            <div className="flex-grow font-mono text-[9px] space-y-2.5 overflow-y-auto log-scroll pr-1 h-64">
+              {liveScans.map((scan, idx) => (
+                <div key={idx} className="flex gap-2 items-start leading-relaxed text-left">
+                  <span className="text-slate-600 shrink-0 font-bold">[{scan.time}]</span>
+                  <span className={
+                    scan.status === 'SYS' 
+                      ? 'text-slate-500 font-bold' 
+                      : scan.status === 'SUCCESS' 
+                      ? 'text-emerald-400 font-black' 
+                      : 'text-cyan-400 font-black'
+                  }>
+                    {scan.text}
+                  </span>
+                </div>
               ))}
-              
-              {/* Telemetry Path 1 (Exits) */}
-              <motion.path
-                d="M 0 180 Q 150 140 300 100 T 600 60 T 900 120 L 1000 160"
-                stroke="#00E5FF"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                fill="none"
-                initial="hidden"
-                animate="visible"
-                variants={pathVariants}
-              />
-              {/* Telemetry Path 2 (Entries) */}
-              <motion.path
-                d="M 0 210 Q 150 160 300 130 T 600 110 T 900 70 L 1000 110"
-                stroke="#7C3AED"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                fill="none"
-                initial="hidden"
-                animate="visible"
-                variants={pathVariants}
-              />
-              
-              {/* Glowing circles on line peaks */}
-              <circle cx="300" cy="100" r="5" fill="#00E5FF" className="animate-ping" />
-              <circle cx="600" cy="60" r="5" fill="#00E5FF" />
-              <circle cx="900" cy="70" r="5" fill="#7C3AED" className="animate-ping" />
-            </svg>
-            <div className="absolute bottom-0 left-0 right-0 flex justify-between font-mono text-[8px] text-slate-500 pt-3 border-t border-white/5">
-              <span>MON</span>
-              <span>TUE</span>
-              <span>WED</span>
-              <span>THU</span>
-              <span>FRI</span>
-              <span>SAT</span>
-              <span>SUN</span>
+            </div>
+            
+            <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center text-[7.5px] font-mono text-slate-500">
+              <span>ACTIVE SCANNER NODES: 4</span>
+              <span>100% ONLINE</span>
             </div>
           </div>
+
         </div>
       </section>
 
@@ -910,6 +1246,27 @@ Try asking me:
               </div>
             )}
             <div ref={sandboxEndRef} />
+          </div>
+
+          {/* Quick select prompt chips */}
+          <div className="px-6 py-3 bg-black/5 border-t border-white/5 flex flex-wrap gap-2">
+            {[
+              { label: 'Curfew rules?', query: 'What is the outpass curfew rule?' },
+              { label: 'System status?', query: 'Generate system status statistics' },
+              { label: 'Warden approvals?', query: 'Explain warden leave approvals flow' }
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => {
+                  setSandboxQuery(chip.query);
+                  handleSandboxSend(chip.query);
+                }}
+                className="px-3 py-1.5 bg-white/5 hover:bg-[#00E5FF]/10 hover:text-[#00E5FF] border border-white/10 hover:border-[#00E5FF]/30 rounded-xl text-[8.5px] font-black uppercase tracking-wider cursor-pointer transition-all active:scale-95 text-slate-400"
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
 
           {/* Input Form */}
@@ -1018,42 +1375,54 @@ Try asking me:
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              quote: 'DORM-X transformed our outpass approval workflow. Leaves that used to take 2 hours of queues and paperwork are now approved by wardens in seconds.',
-              author: 'Dr. Debabrata Giri',
-              role: 'Hostel Registrar, Tech Campus',
-              stars: 5
-            },
-            {
-              quote: 'The real-time parent WhatsApp notification sync has solved our safety concerns. Parents know exactly when students exit or enter the gate.',
-              author: 'Prof. Sandhya Rani',
-              role: 'Chief Warden, VSSUT block',
-              stars: 5
-            },
-            {
-              quote: 'The security log telemetry has speeded up visitor registration by 400%. We no longer use paper registers. Delivery log system is exceptional.',
-              author: 'Commandant R. K. Singh',
-              role: 'Chief Security Officer',
-              stars: 5
-            }
-          ].map((t, idx) => (
-            <div key={idx} className="glass-panel p-8 rounded-[2rem] border-white/5 text-left flex flex-col justify-between h-72 bg-gradient-to-br from-white/[0.01] to-transparent">
-              <div className="space-y-4">
-                <div className="flex gap-1">
-                  {[...Array(t.stars)].map((_, sIdx) => (
-                    <Star key={sIdx} className="w-3.5 h-3.5 fill-[#00FFB2] text-[#00FFB2]" />
+        <div className="relative max-w-3xl mx-auto h-[260px] sm:h-72">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTestimonial}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute inset-0 glass-panel p-8 sm:p-12 rounded-[2.5rem] border-white/10 text-left flex flex-col justify-between bg-gradient-to-br from-white/[0.02] to-transparent shadow-2xl"
+            >
+              <div className="space-y-6">
+                <div className="flex gap-1.5">
+                  {[...Array(testimonials[activeTestimonial].stars)].map((_, sIdx) => (
+                    <Star key={sIdx} className="w-4 h-4 fill-[#00FFB2] text-[#00FFB2]" />
                   ))}
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed font-semibold italic">"{t.quote}"</p>
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-semibold italic">
+                  "{testimonials[activeTestimonial].quote}"
+                </p>
               </div>
-              <div className="border-t border-white/5 pt-4">
-                <p className="text-xs font-black uppercase text-white tracking-wider">{t.author}</p>
-                <p className="text-[9px] text-slate-500 font-extrabold uppercase mt-0.5">{t.role}</p>
+              
+              <div className="border-t border-white/5 pt-4 flex justify-between items-end">
+                <div>
+                  <p className="text-xs sm:text-sm font-black uppercase text-white tracking-widest">
+                    {testimonials[activeTestimonial].author}
+                  </p>
+                  <p className="text-[9px] text-slate-500 font-extrabold uppercase mt-1">
+                    {testimonials[activeTestimonial].role}
+                  </p>
+                </div>
+                
+                {/* Carousel Controls */}
+                <div className="flex gap-2">
+                  {testimonials.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveTestimonial(idx)}
+                      className={`w-2.5 h-2.5 rounded-full cursor-pointer transition-all ${
+                        activeTestimonial === idx 
+                          ? 'bg-[#00E5FF] w-6' 
+                          : 'bg-white/20 hover:bg-white/40'
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </section>
 

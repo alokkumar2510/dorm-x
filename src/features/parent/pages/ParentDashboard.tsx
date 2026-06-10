@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppState } from '../../../context/AppContext';
 import { SYSTEM_STUDENTS } from '../../../constants';
 import { 
@@ -10,11 +10,48 @@ import {
   History, 
   Clock,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from 'lucide-react';
 
 export const ParentDashboard: React.FC = () => {
   const { user, leaves, notifs, users, parentLogCall } = useAppState();
+
+  const [activeCall, setActiveCall] = useState<{ name: string; number: string } | null>(null);
+  const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'connected' | 'ended'>('connecting');
+  const [callTimer, setCallTimer] = useState(0);
+  const [speakerOn, setSpeakerOn] = useState(false);
+  const [muteOn, setMuteOn] = useState(false);
+
+  useEffect(() => {
+    if (!activeCall) return;
+    let timer: NodeJS.Timeout;
+    let interval: NodeJS.Timeout;
+    
+    if (callStatus === 'connecting') {
+      timer = setTimeout(() => setCallStatus('ringing'), 1500);
+    } else if (callStatus === 'ringing') {
+      timer = setTimeout(() => setCallStatus('connected'), 2000);
+    } else if (callStatus === 'connected') {
+      interval = setInterval(() => {
+        setCallTimer(prev => prev + 1);
+      }, 1000);
+    }
+    
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [activeCall, callStatus]);
+
+  const startCall = (name: string, number: string) => {
+    setActiveCall({ name, number });
+    setCallStatus('connecting');
+    setCallTimer(0);
+    setSpeakerOn(false);
+    setMuteOn(false);
+  };
+
 
   if (!user) return null;
 
@@ -206,18 +243,14 @@ export const ParentDashboard: React.FC = () => {
                 <PhoneCall className="w-4 h-4" />
               </button>
               <button
-                onClick={() => {
-                  alert('Dialing Chief Administrator Dr. S. Mohanty Office...');
-                }}
+                onClick={() => startCall('Hostel Warden (Dr. Giri)', '+91 94372 82811')}
                 className="w-full p-4 bg-slate-900 border border-white/10 hover:bg-slate-800 transition-all text-xs font-black uppercase tracking-widest text-slate-300 rounded-xl cursor-pointer flex items-center justify-between"
               >
                 <span>Call Hostel Warden Office</span>
                 <PhoneCall className="w-4 h-4 text-slate-500" />
               </button>
               <button
-                onClick={() => {
-                  alert('Dialing Gate Sentinel Prime Duty Room...');
-                }}
+                onClick={() => startCall('Gate Sentinel (Front Desk)', '+91 63702 11929')}
                 className="w-full p-4 bg-slate-900 border border-white/10 hover:bg-slate-800 transition-all text-xs font-black uppercase tracking-widest text-slate-300 rounded-xl cursor-pointer flex items-center justify-between"
               >
                 <span>Call Gate Security Sentinel</span>
@@ -252,6 +285,79 @@ export const ParentDashboard: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Simulated Call Screen Overlay */}
+      {activeCall && (
+        <div className="fixed inset-0 bg-[#030712]/95 backdrop-blur-xl z-50 flex flex-col justify-between p-12 text-center text-white">
+          <div className="absolute top-8 left-8 text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" /> Secure Trunk Connected
+          </div>
+
+          {/* Call Header */}
+          <div className="mt-20 space-y-4">
+            <div className="relative w-32 h-32 mx-auto rounded-full bg-gradient-to-tr from-cyan-500/20 to-indigo-500/20 border border-white/10 flex items-center justify-center shadow-2xl">
+              {callStatus === 'ringing' && (
+                <div className="absolute inset-0 rounded-full border-4 border-cyan-500/30 animate-ping" />
+              )}
+              <PhoneCall className="w-12 h-12 text-cyan-400" />
+            </div>
+            
+            <div className="space-y-1">
+              <h4 className="text-3xl font-black uppercase tracking-tight text-white mt-4">{activeCall.name}</h4>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{activeCall.number}</p>
+            </div>
+
+            <div className="text-sm font-extrabold text-cyan-400 uppercase tracking-widest pt-2">
+              {callStatus === 'connecting' && 'Connecting secure trunk...'}
+              {callStatus === 'ringing' && 'Ringing...'}
+              {callStatus === 'connected' && (
+                <span>
+                  CONNECTED • {Math.floor(callTimer / 60)}:{(callTimer % 60).toString().padStart(2, '0')}
+                </span>
+              )}
+              {callStatus === 'ended' && 'Call ended'}
+            </div>
+          </div>
+
+          {/* Control Options */}
+          <div className="max-w-xs mx-auto w-full grid grid-cols-2 gap-4">
+            <button 
+              onClick={() => setMuteOn(!muteOn)}
+              className={`py-4 border rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                muteOn 
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' 
+                  : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+              }`}
+            >
+              {muteOn ? 'Unmute' : 'Mute'}
+            </button>
+            <button 
+              onClick={() => setSpeakerOn(!speakerOn)}
+              className={`py-4 border rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                speakerOn 
+                  ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' 
+                  : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+              }`}
+            >
+              {speakerOn ? 'Speaker Off' : 'Speaker'}
+            </button>
+          </div>
+
+          {/* End Call Button */}
+          <div className="mb-20">
+            <button 
+              onClick={() => {
+                setCallStatus('ended');
+                setTimeout(() => setActiveCall(null), 1000);
+              }}
+              className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/20 active:scale-95 transition-all cursor-pointer mx-auto"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -25,8 +26,6 @@
   --shadow-ambient: 0 8px 30px var(--shadow-color);
   --shadow-glow: 0 0 20px var(--brand-glow);
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap');
 
 :root {
   /* Dark mode (default - Quantum Cyber Theme) */
@@ -232,9 +231,6 @@ option {
 }
 .text-black {
   color: var(--bg-primary) !important; /* Invert text in primary button in light mode */
-}
-.text-white {
-  color: var(--text-primary);
 }
 
 /* Ensure white text inside colored buttons and overlays stays white */

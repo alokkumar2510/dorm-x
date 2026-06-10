@@ -6,6 +6,6 @@ export const SYSTEM_STUDENTS: Omit<User, 'roleType'>[] = [
 ];
 
 export const ROLES = {
-  warden: { id: 'warden@pulaha', pass: 'WARDEN@VSSUT', name: 'Dr. S. Mohanty', role: 'CHIEF ADMINISTRATOR' },
+  warden: { id: 'warden@pulaha', pass: 'WARDEN@VSSUT', name: 'Alok Kumar Sahu', role: 'SUPER ADMINISTRATOR' },
   security: { id: 'security1@pulaha', pass: 'SECURITY@PULAHA', name: 'Officer Singh', role: 'SENTINEL PRIME' }
 };
