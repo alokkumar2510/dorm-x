@@ -10,7 +10,8 @@ import {
   LogOut, LogIn, Plus, Send, HelpCircle, ChevronRight
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { getQrCodeUrl, downloadQrCode } from '@/utils/qr';
+import { downloadQrCode } from '@/utils/qr';
+import { QRCodeImage } from './QRCodeImage';
 
 // Mock charts data
 const ANALYTICS_TRENDS = [
@@ -38,7 +39,7 @@ const formatDateString = (isoString: string) => {
    1. STUDENT QR WALLET VIEW
    ========================================== */
 export const StudentQRWalletView: React.FC = () => {
-  const { users, leaves } = useAppState();
+  const { user, users, leaves } = useAppState();
   const [searchVal, setSearchVal] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState('alok@2023btech001');
 
@@ -47,49 +48,61 @@ export const StudentQRWalletView: React.FC = () => {
     { id: 'neha@2023btech054', name: 'Neha Pani', reg: '2023BTECH054', hostel: 'Rohini', room: '102' }
   ];
 
+  const isStudent = user?.roleType === 'student';
+  const loggedInStudentId = user?.id || 'alok@2023btech001';
+  const effectiveStudentId = isStudent ? loggedInStudentId : selectedStudentId;
+
   const filtered = studentsList.filter(s => 
     s.name.toLowerCase().includes(searchVal.toLowerCase()) || 
     s.reg.toLowerCase().includes(searchVal.toLowerCase())
   );
 
-  const selectedStudent = studentsList.find(s => s.id === selectedStudentId) || studentsList[0];
+  const selectedStudent = studentsList.find(s => s.id === effectiveStudentId) || {
+    id: user?.id || 'alok@2023btech001',
+    name: user?.name || 'Alok Kumar',
+    reg: user?.reg || '2023BTECH001',
+    hostel: user?.hostel || 'Pulaha',
+    room: user?.room || '302'
+  };
 
   return (
-    <div className="grid lg:grid-cols-12 gap-8 text-left">
-      <div className="lg:col-span-5 glass-panel p-6 rounded-[2rem] space-y-4">
-        <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">Student Registry</h3>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input 
-            type="text" 
-            placeholder="Search students..." 
-            value={searchVal}
-            onChange={(e) => setSearchVal(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs text-white outline-none"
-          />
+    <div className={`grid ${isStudent ? 'flex justify-center' : 'lg:grid-cols-12'} gap-8 text-left`}>
+      {!isStudent && (
+        <div className="lg:col-span-5 glass-panel p-6 rounded-[2rem] space-y-4">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">Student Registry</h3>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input 
+              type="text" 
+              placeholder="Search students..." 
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs text-white outline-none"
+            />
+          </div>
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1 log-scroll">
+            {filtered.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setSelectedStudentId(s.id)}
+                className={`w-full p-4 rounded-xl border flex justify-between items-center transition-all ${
+                  selectedStudent.id === s.id 
+                    ? 'bg-[#00E5FF]/10 border-[#00E5FF]/20 text-white shadow-md' 
+                    : 'bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                }`}
+              >
+                <div>
+                  <h4 className="text-xs font-black uppercase">{s.name}</h4>
+                  <p className="text-[9px] font-bold mt-1 text-slate-500 uppercase">{s.reg} | Room {s.room}</p>
+                </div>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1 log-scroll">
-          {filtered.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSelectedStudentId(s.id)}
-              className={`w-full p-4 rounded-xl border flex justify-between items-center transition-all ${
-                selectedStudent.id === s.id 
-                  ? 'bg-[#00E5FF]/10 border-[#00E5FF]/20 text-white shadow-md' 
-                  : 'bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.02]'
-              }`}
-            >
-              <div>
-                <h4 className="text-xs font-black uppercase">{s.name}</h4>
-                <p className="text-[9px] font-bold mt-1 text-slate-500 uppercase">{s.reg} | Room {s.room}</p>
-              </div>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          ))}
-        </div>
-      </div>
+      )}
 
-      <div className="lg:col-span-7 flex flex-col justify-center items-center">
+      <div className={isStudent ? 'w-full flex justify-center' : 'lg:col-span-7 flex flex-col justify-center items-center'}>
         {selectedStudent && (
           <div className="w-[320px] glass-panel p-8 rounded-[2.5rem] border-white/10 relative overflow-hidden bg-gradient-to-b from-slate-900/50 to-transparent text-center space-y-6 shadow-2xl">
             {/* Header branding */}
@@ -117,10 +130,10 @@ export const StudentQRWalletView: React.FC = () => {
             {/* Real QR Code */}
             <div className="flex flex-col items-center gap-4">
               <div className="bg-white p-4 rounded-2xl shadow-inner inline-block relative group">
-                <img
-                  src={getQrCodeUrl(selectedStudent.id)}
+                <QRCodeImage
+                  text={`DORMX_AUTH_${selectedStudent.id}`}
                   alt="Student QR Code"
-                  className="w-32 h-32 rounded-lg"
+                  className="w-32 h-32 rounded-lg mx-auto"
                 />
                 <div className="absolute inset-0 bg-slate-950/80 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-3 text-[8px] text-white font-bold uppercase tracking-widest leading-relaxed">
                   Scan Pass Node at Gate Prime
@@ -148,7 +161,15 @@ export const StudentQRWalletView: React.FC = () => {
    2. LEAVE MANAGEMENT VIEW
    ========================================== */
 export const LeaveManagementView: React.FC = () => {
-  const { leaves, approve } = useAppState();
+  const { user, leaves, approve } = useAppState();
+
+  if (user?.roleType !== 'warden') {
+    return (
+      <div className="p-8 text-center text-red-500 font-bold uppercase tracking-wider text-xs bg-red-950/10 border border-red-500/20 rounded-[2rem] max-w-4xl mx-auto">
+        Access Denied: Warden Clearance Required
+      </div>
+    );
+  }
 
   const pending = leaves.filter(l => l.status === 'Pending');
   const processed = leaves.filter(l => l.status !== 'Pending');
@@ -255,8 +276,33 @@ export const LeaveManagementView: React.FC = () => {
    3. WARDEN COMMAND VIEW
    ========================================== */
 export const WardenCommandView: React.FC = () => {
-  const { sys, toggleLockdown, toggleCrowd } = useAppState();
+  const { user, sys, toggleLockdown, toggleCrowd, complaints, feedbacks, updateComplaintStatus, showToast, leaves } = useAppState();
   const [curfew, setCurfew] = useState('9:00 PM');
+  const [complaintFilter, setComplaintFilter] = useState<'All' | 'Pending' | 'In Progress' | 'Resolved'>('All');
+
+  if (user?.roleType !== 'warden') {
+    return (
+      <div className="p-8 text-center text-red-500 font-bold uppercase tracking-wider text-xs bg-red-950/10 border border-red-500/20 rounded-[2rem] max-w-4xl mx-auto">
+        Access Denied: Warden Clearance Required
+      </div>
+    );
+  }
+
+  const activeLeaves = leaves.filter(l => l.status === 'Approved' && l.exitTime && !l.entryTime);
+  const overdueViolators = activeLeaves.map(l => ({
+    id: l.id,
+    name: l.stName,
+    reg: l.stReg,
+    room: l.stRoom || '302',
+    exitTime: new Date(l.exitTime!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    expected: '9:00 PM',
+    timeDiff: 'Overdue'
+  }));
+
+  const displayViolators = overdueViolators.length > 0 ? overdueViolators : [
+    { id: '1', name: 'Rohan Dev', reg: '2023BTECH003', room: '201', exitTime: '7:15 PM', expected: '9:00 PM', timeDiff: 'Overdue by 15 mins' },
+    { id: '2', name: 'Sameer Sen', reg: '2023BTECH014', room: '104', exitTime: '6:50 PM', expected: '9:00 PM', timeDiff: 'Overdue by 40 mins' }
+  ];
 
   return (
     <div className="space-y-8">
@@ -366,18 +412,21 @@ export const WardenCommandView: React.FC = () => {
             <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" /> Curfew Violators (Overdue)
           </h3>
           <div className="space-y-3">
-            {[
-              { name: 'Rohan Dev', reg: '2023BTECH003', room: '201', exitTime: '7:15 PM', expected: '9:00 PM', timeDiff: 'Overdue by 15 mins' },
-              { name: 'Sameer Sen', reg: '2023BTECH014', room: '104', exitTime: '6:50 PM', expected: '9:00 PM', timeDiff: 'Overdue by 40 mins' }
-            ].map((v, idx) => (
-              <div key={idx} className="p-4 rounded-xl bg-red-950/5 border border-red-500/20 flex justify-between items-center text-xs font-semibold">
+            {displayViolators.map((v, idx) => (
+              <div key={idx} className="p-4 rounded-xl bg-red-950/5 border border-red-500/20 flex flex-col sm:flex-row justify-between sm:items-center gap-3 text-xs font-semibold">
                 <div>
                   <p className="text-white font-extrabold uppercase">{v.name}</p>
                   <p className="text-[8px] text-slate-500 uppercase mt-0.5">{v.reg} | Room {v.room}</p>
+                  <p className="text-[7.5px] text-slate-500 font-bold uppercase mt-1">Exited: {v.exitTime} • Expected: {v.expected}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-[9px] text-red-400 font-black uppercase">{v.timeDiff}</p>
-                  <p className="text-[7.5px] text-slate-500 font-bold uppercase mt-0.5">Exited: {v.exitTime}</p>
+                <div className="flex flex-col items-end gap-1.5">
+                  <span className="text-[9px] text-red-400 font-black uppercase">{v.timeDiff}</span>
+                  <button 
+                    onClick={() => showToast(`Emergency WhatsApp/SMS warning message successfully dispatched to parent of ${v.name}!`, 'success')}
+                    className="px-2.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-[7.5px] font-black uppercase tracking-wider cursor-pointer transition-all"
+                  >
+                    Alert Parent
+                  </button>
                 </div>
               </div>
             ))}
@@ -405,6 +454,108 @@ export const WardenCommandView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Row 3: Maintenance Ticket Console & Mess Feedback Hub */}
+      <div className="grid lg:grid-cols-12 gap-8 text-left">
+        {/* Maintenance complaints */}
+        <div className="lg:col-span-6 glass-panel p-6 rounded-[2rem] space-y-4">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">Hostel Maintenance Ticket Console</h3>
+          
+          {/* Filters */}
+          <div className="flex gap-2">
+            {(['All', 'Pending', 'In Progress', 'Resolved'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setComplaintFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-wider cursor-pointer transition-all ${
+                  complaintFilter === f 
+                    ? 'bg-indigo-600 text-white border border-indigo-500/30' 
+                    : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 log-scroll">
+            {(complaints || []).filter(c => complaintFilter === 'All' || c.status === complaintFilter).length === 0 ? (
+              <p className="text-[10px] text-slate-500 py-6 uppercase font-bold text-center">No complaints matching filter</p>
+            ) : (
+              (complaints || []).filter(c => complaintFilter === 'All' || c.status === complaintFilter).map(c => (
+                <div key={c.id} className="p-4 bg-white/[0.01] border border-white/5 rounded-xl space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-xs font-black uppercase text-white">{c.category}</h4>
+                      <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5">By {c.studentName} | Room {c.studentRoom}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
+                      c.status === 'Resolved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                      c.status === 'In Progress' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                      'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}>
+                      {c.status}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-300 font-semibold">{c.description}</p>
+                  
+                  {c.status !== 'Resolved' && (
+                    <div className="flex gap-2 justify-end pt-2 border-t border-white/5">
+                      {c.status === 'Pending' && (
+                        <button
+                          onClick={() => updateComplaintStatus(c.id, 'In Progress')}
+                          className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-[7.5px] font-black uppercase rounded cursor-pointer"
+                        >
+                          Mark In Progress
+                        </button>
+                      )}
+                      <button
+                        onClick={() => updateComplaintStatus(c.id, 'Resolved')}
+                        className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[7.5px] font-black uppercase rounded cursor-pointer"
+                      >
+                        Resolve Ticket
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Dining Feedback Hub */}
+        <div className="lg:col-span-6 glass-panel p-6 rounded-[2rem] space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">Dining Feedback Review Board</h3>
+            {feedbacks.length > 0 && (
+              <span className="px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded text-[8px] font-black uppercase">
+                Avg: {(feedbacks.reduce((acc, f) => acc + f.rating, 0) / feedbacks.length).toFixed(1)} ★
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 log-scroll">
+            {feedbacks.length === 0 ? (
+              <p className="text-[10px] text-slate-500 py-6 uppercase font-bold text-center">No dining feedback submitted</p>
+            ) : (
+              feedbacks.slice().reverse().map(f => (
+                <div key={f.id} className="p-4 bg-white/[0.01] border border-white/5 rounded-xl space-y-2">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-slate-400">{f.meal} Meal</span>
+                      <p className="text-[7.5px] text-slate-500 font-bold uppercase mt-0.5">By {f.studentName}</p>
+                    </div>
+                    <div className="text-amber-400 text-xs">
+                      {'★'.repeat(f.rating)}{'☆'.repeat(5 - f.rating)}
+                    </div>
+                  </div>
+                  {f.comment && <p className="text-[10px] text-slate-300 font-semibold font-sans">"{f.comment}"</p>}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -413,7 +564,7 @@ export const WardenCommandView: React.FC = () => {
    4. SECURITY CENTER VIEW
    ========================================== */
 export const SecurityCenterView: React.FC = () => {
-  const { logistics, addDelivery, exitLogis, showToast } = useAppState();
+  const { user, logistics, addDelivery, exitLogis, leaves, move, showToast } = useAppState();
   const [vendor, setVendor] = useState('');
   const [agent, setAgent] = useState('');
 
@@ -431,6 +582,119 @@ export const SecurityCenterView: React.FC = () => {
   const [driver, setDriver] = useState('');
   const [scanningFace, setScanningFace] = useState(false);
   const [scanResult, setScanResult] = useState(false);
+
+  // Real QR Reader / file uploader / simulator states
+  const [uploadedLeave, setUploadedLeave] = useState<any | null>(null);
+  const [uploadedMessToken, setUploadedMessToken] = useState<string | null>(null);
+  const [selectedScanLeaveId, setSelectedScanLeaveId] = useState('');
+  const [Html5QrcodeClass, setHtml5QrcodeClass] = useState<any>(null);
+  const [qrScanLoading, setQrScanLoading] = useState(false);
+  const [qrScanSuccess, setQrScanSuccess] = useState(false);
+
+  // Visitor Registry Log
+  const [visitors, setVisitors] = useState<Array<{ id: string; name: string; phone: string; purpose: string; entryTime: string; exitTime: string | null }>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dx_visitors');
+      return saved ? JSON.parse(saved) : [
+        { id: 'v1', name: 'Dr. Ramesh Kumar', phone: '9438201920', purpose: 'Guest Lecture in Dept of CS', entryTime: new Date(Date.now() - 3600000).toISOString(), exitTime: null },
+        { id: 'v2', name: 'Alok\'s Father', phone: '9938210382', purpose: 'Meet student Alok Kumar', entryTime: new Date(Date.now() - 7200000).toISOString(), exitTime: new Date(Date.now() - 1800000).toISOString() }
+      ];
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dx_visitors', JSON.stringify(visitors));
+    }
+  }, [visitors]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      import('html5-qrcode').then((module) => {
+        setHtml5QrcodeClass(module.Html5Qrcode);
+      });
+    }
+  }, []);
+
+  if (user?.roleType !== 'security') {
+    return (
+      <div className="p-8 text-center text-red-500 font-bold uppercase tracking-wider text-xs bg-red-950/10 border border-red-500/20 rounded-[2rem] max-w-4xl mx-auto">
+        Access Denied: Security Clearance Required
+      </div>
+    );
+  }
+
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    showToast('Decoding QR Cipher...', 'info');
+    let decodedText = '';
+
+    if (Html5QrcodeClass) {
+      try {
+        const containerId = 'qr-file-dummy-reader';
+        let container = document.getElementById(containerId);
+        if (!container) {
+          container = document.createElement('div');
+          container.id = containerId;
+          container.style.display = 'none';
+          document.body.appendChild(container);
+        }
+        const html5QrCode = new Html5QrcodeClass(containerId);
+        decodedText = await html5QrCode.scanFile(file, false);
+      } catch (err) {
+        console.warn('Direct QR decoding failed, executing filename fallback:', err);
+      }
+    }
+
+    if (!decodedText) {
+      const fileName = file.name;
+      const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+      const parts = nameWithoutExt.split('_');
+      const lastPart = parts[parts.length - 1];
+      if (lastPart) {
+        decodedText = lastPart;
+      }
+    }
+
+    if (decodedText) {
+      const outpassId = decodedText.replace('DORMX_AUTH_', '');
+      const leave = leaves.find(l => l.id === outpassId || l.id.replace('-', '') === outpassId.replace('-', ''));
+      if (leave) {
+        setUploadedLeave(leave);
+        setUploadedMessToken(null);
+        showToast('QR Pass Decoded: Leave Record Found', 'success');
+      } else if (outpassId.startsWith('MESS-')) {
+        setUploadedMessToken(outpassId);
+        setUploadedLeave(null);
+        showToast(`QR Coupon Decoded: ${outpassId}`, 'success');
+      } else {
+        showToast(`Decoded: ${outpassId} (Record not found)`, 'warning');
+      }
+    } else {
+      showToast('Could not decode QR code. Please try again.', 'error');
+    }
+  };
+
+  const triggerQrScanSimulate = () => {
+    if (!selectedScanLeaveId) {
+      showToast('Please select a resident to simulate scanning', 'warning');
+      return;
+    }
+    setQrScanLoading(true);
+    setQrScanSuccess(false);
+    setTimeout(() => {
+      setQrScanLoading(false);
+      setQrScanSuccess(true);
+      const leave = leaves.find(l => l.id === selectedScanLeaveId);
+      if (leave) {
+        setUploadedLeave(leave);
+        showToast(`Simulated Scan Success: ${leave.stName}`, 'success');
+      }
+    }, 1500);
+  };
 
   const handleCourierSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -470,8 +734,146 @@ export const SecurityCenterView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 font-sans">
+      
+      {/* Real QR Reader & File upload / Simulation */}
       <div className="grid lg:grid-cols-12 gap-8 text-left">
+        <div className="lg:col-span-7 glass-panel p-6 rounded-[2rem] space-y-4">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-[#00E5FF]" /> Gate Access QR Pass Scanner
+          </h3>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+            Scan dynamic QR pass shown by resident to grant entry or exit.
+          </p>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl flex flex-col justify-between space-y-3">
+              <div>
+                <h5 className="text-[11px] font-black uppercase text-white">Upload Pass PNG</h5>
+                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Upload downloaded QR pass image file</p>
+              </div>
+              <div className="relative">
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={handleQrUpload}
+                  className="hidden" 
+                  id="qr-file-upload-input"
+                />
+                <label 
+                  htmlFor="qr-file-upload-input"
+                  className="w-full py-3 bg-white/5 border border-dashed border-white/10 hover:border-[#00E5FF]/40 text-[#00E5FF] hover:bg-[#00E5FF]/5 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Select QR File
+                </label>
+              </div>
+            </div>
+
+            <div className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl flex flex-col justify-between space-y-3">
+              <div>
+                <h5 className="text-[11px] font-black uppercase text-white">Simulate Lens Scan</h5>
+                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Simulate live gate scanner camera</p>
+              </div>
+              <div className="space-y-2">
+                <select
+                  value={selectedScanLeaveId}
+                  onChange={(e) => setSelectedScanLeaveId(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/10 text-[9px] font-bold text-white outline-none"
+                >
+                  <option value="">Select Resident Pass...</option>
+                  {leaves.filter(l => l.status === 'Approved').map(l => (
+                    <option key={l.id} value={l.id}>
+                      {l.stName} ({l.id}) - {l.type}
+                    </option>
+                  ))}
+                </select>
+                <button 
+                  onClick={triggerQrScanSimulate}
+                  disabled={qrScanLoading}
+                  className="w-full py-2 bg-[#00E5FF] hover:bg-[#00E5FF]/85 disabled:bg-slate-800 disabled:text-slate-500 text-black font-black rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  {qrScanLoading ? 'Simulating Scan...' : 'Trigger Camera Scan'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {qrScanLoading && (
+            <div className="relative h-28 bg-black/40 rounded-2xl overflow-hidden border border-white/5 flex items-center justify-center">
+              <div className="laser-line"></div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-[#00E5FF] animate-pulse">Running Scan Verification...</span>
+            </div>
+          )}
+        </div>
+
+        <div className="lg:col-span-5 glass-panel p-6 rounded-[2rem] flex flex-col justify-between space-y-4">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">Gate Verification Center</h3>
+          {uploadedLeave ? (
+            <div className="p-4 bg-slate-950 border border-white/5 rounded-2xl space-y-4 relative overflow-hidden text-left">
+              <div className="absolute top-2 right-2 px-2.5 py-0.5 rounded bg-emerald-500/10 text-[#00FFB2] text-[8px] font-black uppercase">
+                Active Pass
+              </div>
+              <div className="space-y-1.5 text-xs text-left">
+                <p className="font-black text-white uppercase text-sm leading-none">{uploadedLeave.stName}</p>
+                <p className="text-[8.5px] text-slate-500 font-bold uppercase tracking-wider mt-1">Reg: {uploadedLeave.stReg} | Room {uploadedLeave.stRoom}</p>
+                <div className="pt-2 border-t border-white/5 text-[10px] space-y-1 text-slate-300 font-bold mt-2">
+                  <p><span className="text-slate-500">Pass Type:</span> {uploadedLeave.type}</p>
+                  <p><span className="text-slate-500">Period:</span> {uploadedLeave.dateRange}</p>
+                  <p><span className="text-slate-500">Reason:</span> {uploadedLeave.reason}</p>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    move(uploadedLeave.id, 'exit');
+                    setUploadedLeave(null);
+                    showToast('Exit Logged: Resident Granted Campus Exit', 'success');
+                  }}
+                  disabled={!!uploadedLeave.exitTime}
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black rounded-xl text-[9px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  {uploadedLeave.exitTime ? 'Exit Logged' : 'Log Gate Exit'}
+                </button>
+                <button
+                  onClick={() => {
+                    move(uploadedLeave.id, 'entry');
+                    setUploadedLeave(null);
+                    showToast('Entry Logged: Resident Re-entered Hostel', 'success');
+                  }}
+                  disabled={!uploadedLeave.exitTime || !!uploadedLeave.entryTime}
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black rounded-xl text-[9px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  {uploadedLeave.entryTime ? 'Entry Logged' : 'Log Gate Entry'}
+                </button>
+              </div>
+            </div>
+          ) : uploadedMessToken ? (
+            <div className="p-4 bg-emerald-950/10 border border-emerald-500/20 rounded-2xl text-center space-y-3">
+              <Check className="w-8 h-8 text-emerald-400 mx-auto animate-bounce" />
+              <div>
+                <p className="text-[10px] font-black text-white uppercase">Mess Dining Coupon Valid</p>
+                <p className="text-[8px] text-slate-500 font-mono mt-0.5">{uploadedMessToken}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setUploadedMessToken(null);
+                  showToast('Meal coupon scan verified and claimed', 'success');
+                }}
+                className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-black font-black rounded-xl text-[9px] uppercase tracking-wider cursor-pointer"
+              >
+                Mark Coupon as Claimed
+              </button>
+            </div>
+          ) : (
+            <div className="flex-grow flex flex-col justify-center items-center p-8 border border-dashed border-white/5 rounded-2xl bg-black/10 text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+              No QR data scanned.
+              <span className="text-[8px] text-slate-600 mt-1 block">Please upload a pass file or trigger simulator lens scanner.</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-12 gap-8 text-left mt-8">
       {/* CCTV Mock Grid */}
       <div className="lg:col-span-8 space-y-4">
         <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
@@ -768,6 +1170,175 @@ export const SecurityCenterView: React.FC = () => {
         </div>
       </div>
 
+      {/* Row 3: Visitor Registry Log & Gate Congestion Monitor */}
+      <div className="grid lg:grid-cols-12 gap-8 text-left font-sans mt-8">
+        {/* Visitor Registry Log */}
+        <div className="lg:col-span-8 glass-panel p-6 rounded-[2rem] space-y-4">
+          <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+            <Users className="w-4 h-4 text-[#00E5FF]" /> Visitor Registry Log
+          </h3>
+          
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              const nameTarget = e.currentTarget.elements.namedItem('vName') as HTMLInputElement;
+              const phoneTarget = e.currentTarget.elements.namedItem('vPhone') as HTMLInputElement;
+              const purposeTarget = e.currentTarget.elements.namedItem('vPurpose') as HTMLInputElement;
+              if (!nameTarget.value.trim() || !phoneTarget.value.trim() || !purposeTarget.value.trim()) return;
+              
+              setVisitors([
+                ...visitors,
+                {
+                  id: 'v_' + Date.now(),
+                  name: nameTarget.value.trim(),
+                  phone: phoneTarget.value.trim(),
+                  purpose: purposeTarget.value.trim(),
+                  entryTime: new Date().toISOString(),
+                  exitTime: null
+                }
+              ]);
+              nameTarget.value = '';
+              phoneTarget.value = '';
+              purposeTarget.value = '';
+              showToast('Visitor registered successfully', 'success');
+            }} 
+            className="grid grid-cols-1 md:grid-cols-4 gap-3"
+          >
+            <input
+              name="vName"
+              type="text"
+              placeholder="Name"
+              required
+              className="p-3 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none"
+            />
+            <input
+              name="vPhone"
+              type="text"
+              placeholder="Phone (e.g. 9876543210)"
+              required
+              className="p-3 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none"
+            />
+            <input
+              name="vPurpose"
+              type="text"
+              placeholder="Purpose of Visit"
+              required
+              className="p-3 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none md:col-span-2"
+            />
+            <button
+              type="submit"
+              className="py-3 bg-[#00E5FF] hover:bg-[#00E5FF]/85 text-black font-black rounded-xl text-[10px] uppercase tracking-widest cursor-pointer transition-all md:col-span-4"
+            >
+              Register Guest Entry
+            </button>
+          </form>
+
+          {/* List */}
+          <div className="overflow-x-auto pt-2 max-h-60 overflow-y-auto pr-1 log-scroll">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                  <th className="py-2.5 px-3">Visitor Name</th>
+                  <th className="py-2.5 px-3">Contact</th>
+                  <th className="py-2.5 px-3">Purpose</th>
+                  <th className="py-2.5 px-3">Entry Time</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visitors.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-slate-500 font-bold uppercase text-[9px]">No visitors registered</td>
+                  </tr>
+                ) : (
+                  [...visitors].reverse().map((v) => (
+                    <tr key={v.id} className="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors font-semibold text-slate-300">
+                      <td className="py-3 px-3 text-white font-extrabold uppercase">{v.name}</td>
+                      <td className="py-3 px-3 font-mono text-[10px] text-slate-400">{v.phone}</td>
+                      <td className="py-3 px-3 truncate max-w-[150px]">{v.purpose}</td>
+                      <td className="py-3 px-3 text-[10px] text-slate-400">
+                        {formatDateString(v.entryTime)}
+                        {v.exitTime && (
+                          <span className="block text-[8px] text-[#00FFB2]">
+                            Exit: {formatDateString(v.exitTime)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        {v.exitTime ? (
+                          <span className="px-2 py-0.5 bg-slate-800 text-slate-500 text-[8px] font-black uppercase rounded">
+                            Checked Out
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVisitors(visitors.map(vis => vis.id === v.id ? { ...vis, exitTime: new Date().toISOString() } : vis));
+                              showToast(`Visitor Checked Out: ${v.name}`, 'warning');
+                            }}
+                            className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[8px] font-black uppercase rounded cursor-pointer"
+                          >
+                            Log Exit
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Gate Congestion Monitor */}
+        <div className="lg:col-span-4 glass-panel p-6 rounded-[2rem] space-y-4 flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-[#00FFB2]" /> Congestion Monitor
+            </h3>
+            <div className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl space-y-3 mt-4">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-black uppercase text-slate-400">Scan Rate</span>
+                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-[#00FFB2] text-[8px] font-black uppercase animate-pulse">
+                  Normal Flow
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black tracking-tight text-white">14</span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase">scans / min</span>
+              </div>
+              <p className="text-[8px] text-slate-500 font-bold uppercase">
+                Average gate throughput calibrated for standard curfew operations.
+              </p>
+            </div>
+          </div>
+          
+          <div className="h-28 w-full mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={[
+                { time: '08:00', scans: 5 },
+                { time: '10:00', scans: 12 },
+                { time: '12:00', scans: 25 },
+                { time: '14:00', scans: 18 },
+                { time: '16:00', scans: 30 },
+                { time: '18:00', scans: 45 },
+                { time: '20:00', scans: 15 },
+              ]}>
+                <defs>
+                  <linearGradient id="colorScans" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00FFB2" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#00FFB2" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="time" stroke="#64748b" fontSize={8} tickLine={false} />
+                <Tooltip contentStyle={{ background: '#090d16', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }} />
+                <Area type="monotone" dataKey="scans" stroke="#00FFB2" strokeWidth={1.5} fillOpacity={1} fill="url(#colorScans)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 };
@@ -776,7 +1347,7 @@ export const SecurityCenterView: React.FC = () => {
    5. PARENT PORTAL VIEW
    ========================================== */
 export const ParentPortalView: React.FC = () => {
-  const { parentLogCall } = useAppState();
+  const { user, parentLogCall } = useAppState();
 
   const [activeCall, setActiveCall] = useState<{ name: string; number: string } | null>(null);
   const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'connected' | 'ended'>('connecting');
@@ -812,6 +1383,14 @@ export const ParentPortalView: React.FC = () => {
     setSpeakerOn(false);
     setMuteOn(false);
   };
+
+  if (user?.roleType !== 'parent') {
+    return (
+      <div className="p-8 text-center text-red-500 font-bold uppercase tracking-wider text-xs bg-red-950/10 border border-red-500/20 rounded-[2rem] max-w-4xl mx-auto">
+        Access Denied: Parent Clearance Required
+      </div>
+    );
+  }
 
   return (
     <div className="grid lg:grid-cols-12 gap-8 text-left">
@@ -1042,6 +1621,15 @@ Try asking me:
    7. ANALYTICS VIEW
    ========================================== */
 export const AnalyticsView: React.FC = () => {
+  const { user } = useAppState();
+
+  if (user?.roleType !== 'warden') {
+    return (
+      <div className="p-8 text-center text-red-500 font-bold uppercase tracking-wider text-xs bg-red-950/10 border border-red-500/20 rounded-[2rem] max-w-4xl mx-auto">
+        Access Denied: Warden Clearance Required
+      </div>
+    );
+  }
   return (
     <div className="space-y-8 text-left">
       <div className="glass-panel p-6 rounded-[2rem] space-y-4">
@@ -1137,8 +1725,16 @@ export const NotificationsView: React.FC = () => {
    9. REPORTS VIEW
    ========================================== */
 export const ReportsView: React.FC = () => {
-  const { showToast } = useAppState();
+  const { user, showToast } = useAppState();
   const [downloading, setDownloading] = useState(false);
+
+  if (user?.roleType !== 'warden') {
+    return (
+      <div className="p-8 text-center text-red-500 font-bold uppercase tracking-wider text-xs bg-red-950/10 border border-red-500/20 rounded-[2rem] max-w-4xl mx-auto">
+        Access Denied: Warden Clearance Required
+      </div>
+    );
+  }
 
   const handleDownload = () => {
     setDownloading(true);
@@ -1238,6 +1834,15 @@ export const SettingsView: React.FC = () => {
    11. SYSTEM LOGS VIEW
    ========================================== */
 export const SystemLogsView: React.FC = () => {
+  const { user } = useAppState();
+
+  if (user?.roleType !== 'security') {
+    return (
+      <div className="p-8 text-center text-red-500 font-bold uppercase tracking-wider text-xs bg-red-950/10 border border-red-500/20 rounded-[2rem] max-w-4xl mx-auto">
+        Access Denied: Security Clearance Required
+      </div>
+    );
+  }
   return (
     <div className="glass-panel p-6 rounded-[2rem] space-y-4 text-left max-w-4xl mx-auto">
       <h3 className="text-sm font-black uppercase text-slate-400 tracking-wider">Developer Console Shell</h3>

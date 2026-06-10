@@ -357,7 +357,9 @@ export const WardenDashboard: React.FC = () => {
       <div className="space-y-4">
         <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Core Modules</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {coreModules.map((mod, idx) => {
+          {coreModules
+            .filter(mod => ['Leave Management', 'Warden Command', 'AI Assistant'].includes(mod.title))
+            .map((mod, idx) => {
             const Icon = mod.icon;
             return (
               <div 

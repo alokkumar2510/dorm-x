@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { User, LeaveRequest, Notification, LogisticsRecord, SystemSettings } from '../types';
+import type { User, LeaveRequest, Notification, LogisticsRecord, SystemSettings, Complaint, MessFeedback } from '../types';
 import { loadState, saveState, type StorageState } from '../services/storage';
 import { SYSTEM_STUDENTS, ROLES } from '../constants';
 import { AnimatePresence } from 'framer-motion';
@@ -14,6 +14,8 @@ interface AppContextType {
   notifs: Notification[];
   logistics: LogisticsRecord[];
   sys: SystemSettings;
+  complaints: Complaint[];
+  feedbacks: MessFeedback[];
   login: (id: string, pass: string) => boolean;
   signup: (name: string, reg: string, hostel: string, room: string) => User;
   logout: () => void;
@@ -28,6 +30,9 @@ interface AppContextType {
   toggleLockdown: () => void;
   toggleCrowd: () => void;
   parentLogCall: () => void;
+  addComplaint: (category: 'Electrical' | 'Plumbing' | 'Wi-Fi' | 'Mess' | 'Other', description: string) => void;
+  updateComplaintStatus: (id: string, status: 'Pending' | 'In Progress' | 'Resolved') => void;
+  submitFeedback: (meal: 'Breakfast' | 'Lunch' | 'Dinner', rating: number, comment: string) => void;
   theme: 'dark' | 'light';
   toggleTheme: () => void;
   activeTab: string;
@@ -66,6 +71,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notifs: [],
     logistics: [],
     sys: { lockdown: false, crowd: false, notes: '' },
+    complaints: [],
+    feedbacks: [],
   });
 
   // Load state, user session, and theme on client mount
@@ -441,6 +448,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Link Sync Sent: Child Notified', 'success');
   };
 
+  const addComplaint = (category: 'Electrical' | 'Plumbing' | 'Wi-Fi' | 'Mess' | 'Other', description: string) => {
+    if (!user) return;
+    const newComplaint: Complaint = {
+      id: 'COMP-' + Date.now(),
+      studentId: user.id,
+      studentName: user.name,
+      studentRoom: user.room || 'N/A',
+      category,
+      description,
+      status: 'Pending',
+      createdAt: new Date().toISOString(),
+    };
+    updateState({
+      complaints: [...(state.complaints || []), newComplaint]
+    });
+    showToast('Complaint Registered Successfully', 'success');
+  };
+
+  const updateComplaintStatus = (id: string, status: 'Pending' | 'In Progress' | 'Resolved') => {
+    const updated = (state.complaints || []).map(c => c.id === id ? { ...c, status } : c);
+    updateState({
+      complaints: updated
+    });
+    showToast(`Complaint Status Updated: ${status}`, 'info');
+  };
+
+  const submitFeedback = (meal: 'Breakfast' | 'Lunch' | 'Dinner', rating: number, comment: string) => {
+    if (!user) return;
+    const newFeedback: MessFeedback = {
+      id: 'FEED-' + Date.now(),
+      studentName: user.name,
+      meal,
+      rating,
+      comment,
+      createdAt: new Date().toISOString(),
+    };
+    updateState({
+      feedbacks: [...(state.feedbacks || []), newFeedback]
+    });
+    showToast('Mess Feedback Submitted', 'success');
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -450,6 +499,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifs: state.notifs,
         logistics: state.logistics,
         sys: state.sys,
+        complaints: state.complaints || [],
+        feedbacks: state.feedbacks || [],
         login,
         signup,
         logout,
@@ -464,6 +515,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleLockdown,
         toggleCrowd,
         parentLogCall,
+        addComplaint,
+        updateComplaintStatus,
+        submitFeedback,
         theme,
         toggleTheme,
         activeTab,

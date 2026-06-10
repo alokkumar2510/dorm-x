@@ -9,7 +9,7 @@ import {
   Bell, FileSpreadsheet, Settings, Terminal, ShieldCheck, 
   ChevronDown, Search, Moon, Sun, Lock, AlertTriangle, 
   Check, ArrowRight, X, Sparkles, Clipboard, ShieldAlert,
-  HelpCircle, LogOut
+  HelpCircle, LogOut, Phone
 } from 'lucide-react';
 import AIAssistant from '../ui/AIAssistant';
 
@@ -69,21 +69,63 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { name: 'System Logs', path: '/security', icon: Terminal },
   ];
 
-  const liveActivities = [
-    { title: 'QR Entry - Block A Gate', desc: 'PX-8290 • 7:42 PM', icon: QrCode, color: 'text-[#00FFB2] bg-[#00FFB2]/5 border-[#00FFB2]/10' },
-    { title: 'Leave Approved', desc: 'Rahul Sharma • 7:40 PM', icon: Check, color: 'text-[#00FFB2] bg-[#00FFB2]/5 border-[#00FFB2]/10' },
-    { title: 'SOS Alert - Resolved', desc: 'Block C • 7:35 PM', icon: AlertTriangle, color: 'text-red-400 bg-red-500/5 border-red-500/10' },
-    { title: 'Visitor Check-in', desc: 'Mr. Suresh Kumar • 7:30 PM', icon: Users, color: 'text-[#00E5FF] bg-[#00E5FF]/5 border-[#00E5FF]/10' },
-    { title: 'Outpass Generated', desc: 'Sneha Patil • 7:28 PM', icon: FileText, color: 'text-[#00E5FF] bg-[#00E5FF]/5 border-[#00E5FF]/10' },
-    { title: 'Gate Locked Down', desc: 'Main Gate • 7:20 PM', icon: Lock, color: 'text-red-400 bg-red-500/5 border-red-500/10' },
-  ];
+  const liveActivitiesByRole = {
+    student: [
+      { title: 'Outpass Approved', desc: 'By Warden Office • Just now', icon: Check, color: 'text-[#00FFB2] bg-[#00FFB2]/5 border-[#00FFB2]/10' },
+      { title: 'Dinner Coupon Claimed', desc: 'Mess Hall A • 8:15 PM', icon: QrCode, color: 'text-[#00E5FF] bg-[#00E5FF]/5 border-[#00E5FF]/10' },
+      { title: 'Device Whitelisted', desc: 'MAC 00:1A:... • 3:20 PM', icon: Settings, color: 'text-[#7C3AED] bg-[#7C3AED]/5 border-[#7C3AED]/10' },
+      { title: 'Curfew Reminder', desc: 'Gate closes at 9:00 PM', icon: AlertTriangle, color: 'text-amber-500 bg-amber-500/5 border-amber-500/10' },
+    ],
+    parent: [
+      { title: 'Gate Exit Registered', desc: 'Alok Kumar • 7:42 PM', icon: QrCode, color: 'text-[#00FFB2] bg-[#00FFB2]/5 border-[#00FFB2]/10' },
+      { title: 'Leave Filed by Child', desc: 'Weekend Visit Home • 5:10 PM', icon: FileText, color: 'text-[#00E5FF] bg-[#00E5FF]/5 border-[#00E5FF]/10' },
+      { title: 'Curfew Safe Check-in', desc: 'Alok Kumar • Yesterday', icon: ShieldCheck, color: 'text-emerald-400 bg-emerald-500/5 border-emerald-500/10' },
+      { title: 'Hostel Notice', desc: 'Vaccination Drive Sync • June 9', icon: Bell, color: 'text-[#7C3AED] bg-[#7C3AED]/5 border-[#7C3AED]/10' },
+    ],
+    security: [
+      { title: 'QR Entry - Block A Gate', desc: 'PX-8290 • 7:42 PM', icon: QrCode, color: 'text-[#00FFB2] bg-[#00FFB2]/5 border-[#00FFB2]/10' },
+      { title: 'Vehicle Logged - Mess', desc: 'OD-02-X-9988 • 7:30 PM', icon: Terminal, color: 'text-[#00E5FF] bg-[#00E5FF]/5 border-[#00E5FF]/10' },
+      { title: 'SOS Alert - Block C', desc: 'Triggered by Resident • 7:35 PM', icon: AlertTriangle, color: 'text-red-400 bg-red-500/5 border-red-500/10' },
+      { title: 'Visitor Checked In', desc: 'Mr. Suresh Kumar • 7:20 PM', icon: Users, color: 'text-[#7C3AED] bg-[#7C3AED]/5 border-[#7C3AED]/10' },
+    ],
+    warden: [
+      { title: 'Pending Outpasses', desc: '3 requests waiting • Just now', icon: FileText, color: 'text-[#00E5FF] bg-[#00E5FF]/5 border-[#00E5FF]/10' },
+      { title: 'Curfew Violators Alert', desc: '2 students overdue • 9:15 PM', icon: AlertTriangle, color: 'text-red-400 bg-red-500/5 border-red-500/10' },
+      { title: 'Emergency SOS Resolved', desc: 'Block C • 7:35 PM', icon: Check, color: 'text-[#00FFB2] bg-[#00FFB2]/5 border-[#00FFB2]/10' },
+      { title: 'System Logs Exported', desc: 'Automated Backup • 6:00 PM', icon: FileSpreadsheet, color: 'text-[#7C3AED] bg-[#7C3AED]/5 border-[#7C3AED]/10' },
+    ],
+  };
 
-  const quickActions = [
-    { label: 'Generate Outpass', icon: Clipboard, color: 'bg-[#00FFB2]/5 border-[#00FFB2]/10 hover:border-[#00FFB2]/30 text-[#00FFB2]', iconColor: 'text-[#00FFB2]' },
-    { label: 'Scan QR Code', icon: QrCode, color: 'bg-[#00E5FF]/5 border-[#00E5FF]/10 hover:border-[#00E5FF]/30 text-[#00E5FF]', iconColor: 'text-[#00E5FF]' },
-    { label: 'Send Notification', icon: Bell, color: 'bg-[#7C3AED]/5 border-[#7C3AED]/10 hover:border-[#7C3AED]/30 text-[#7C3AED]', iconColor: 'text-[#7C3AED]' },
-    { label: 'Emergency Alert', icon: ShieldAlert, color: 'bg-red-500/5 border-red-500/10 hover:border-red-500/30 text-red-400', iconColor: 'text-red-400' },
-  ];
+  const liveActivities = liveActivitiesByRole[currentRole as keyof typeof liveActivitiesByRole] || liveActivitiesByRole.student;
+
+  const quickActionsByRole = {
+    student: [
+      { label: 'Request Outpass', icon: Clipboard, color: 'bg-[#00FFB2]/5 border-[#00FFB2]/10 hover:border-[#00FFB2]/30 text-[#00FFB2]', iconColor: 'text-[#00FFB2]' },
+      { label: 'View QR Pass', icon: QrCode, color: 'bg-[#00E5FF]/5 border-[#00E5FF]/10 hover:border-[#00E5FF]/30 text-[#00E5FF]', iconColor: 'text-[#00E5FF]' },
+      { label: 'Meal Coupon', icon: Check, color: 'bg-[#7C3AED]/5 border-[#7C3AED]/10 hover:border-[#7C3AED]/30 text-[#7C3AED]', iconColor: 'text-[#7C3AED]' },
+      { label: 'MAC Whitelist', icon: Settings, color: 'bg-indigo-500/5 border-indigo-500/10 hover:border-indigo-500/30 text-indigo-400', iconColor: 'text-indigo-400' },
+    ],
+    parent: [
+      { label: 'Contact Warden', icon: Phone, color: 'bg-[#00FFB2]/5 border-[#00FFB2]/10 hover:border-[#00FFB2]/30 text-[#00FFB2]', iconColor: 'text-[#00FFB2]' },
+      { label: 'Contact Security', icon: Phone, color: 'bg-[#00E5FF]/5 border-[#00E5FF]/10 hover:border-[#00E5FF]/30 text-[#00E5FF]', iconColor: 'text-[#00E5FF]' },
+      { label: 'View Child Pass', icon: Users, color: 'bg-[#7C3AED]/5 border-[#7C3AED]/10 hover:border-[#7C3AED]/30 text-[#7C3AED]', iconColor: 'text-[#7C3AED]' },
+      { label: 'Emergency Ping', icon: ShieldAlert, color: 'bg-red-500/5 border-red-500/10 hover:border-red-500/30 text-red-400', iconColor: 'text-red-400' },
+    ],
+    security: [
+      { label: 'Scan QR Pass', icon: QrCode, color: 'bg-[#00FFB2]/5 border-[#00FFB2]/10 hover:border-[#00FFB2]/30 text-[#00FFB2]', iconColor: 'text-[#00FFB2]' },
+      { label: 'Log Vehicle', icon: Terminal, color: 'bg-[#00E5FF]/5 border-[#00E5FF]/10 hover:border-[#00E5FF]/30 text-[#00E5FF]', iconColor: 'text-[#00E5FF]' },
+      { label: 'Face Match Scanner', icon: ShieldCheck, color: 'bg-[#7C3AED]/5 border-[#7C3AED]/10 hover:border-[#7C3AED]/30 text-[#7C3AED]', iconColor: 'text-[#7C3AED]' },
+      { label: 'Emergency Alarm', icon: ShieldAlert, color: 'bg-red-500/5 border-red-500/10 hover:border-red-500/30 text-red-400', iconColor: 'text-red-400' },
+    ],
+    warden: [
+      { label: 'Authorize Leaves', icon: FileSpreadsheet, color: 'bg-[#00FFB2]/5 border-[#00FFB2]/10 hover:border-[#00FFB2]/30 text-[#00FFB2]', iconColor: 'text-[#00FFB2]' },
+      { label: 'Lockdown Mode', icon: Lock, color: 'bg-[#00E5FF]/5 border-[#00E5FF]/10 hover:border-[#00E5FF]/30 text-[#00E5FF]', iconColor: 'text-[#00E5FF]' },
+      { label: 'System Analytics', icon: BarChart2, color: 'bg-[#7C3AED]/5 border-[#7C3AED]/10 hover:border-[#7C3AED]/30 text-[#7C3AED]', iconColor: 'text-[#7C3AED]' },
+      { label: 'Curfew Ledger', icon: AlertTriangle, color: 'bg-red-500/5 border-red-500/10 hover:border-red-500/30 text-red-400', iconColor: 'text-red-400' },
+    ],
+  };
+
+  const quickActions = quickActionsByRole[currentRole as keyof typeof quickActionsByRole] || quickActionsByRole.student;
 
   const handleNavClick = (name: string) => {
     setActiveTab(name);
@@ -283,7 +325,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 <div className="flex justify-between items-center">
                   <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-300">Live Activity</h4>
                   <button 
-                    onClick={() => setActiveTab('System Logs')}
+                    onClick={() => {
+                      if (currentRole === 'security') setActiveTab('System Logs');
+                      else if (currentRole === 'warden') setActiveTab('Reports');
+                      else setActiveTab('Notifications');
+                    }}
                     className="text-[8px] font-black text-[#00E5FF] uppercase tracking-widest cursor-pointer hover:underline"
                   >
                     View All
@@ -342,10 +388,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       <button
                         key={qIdx}
                         onClick={() => {
-                          if (qa.label === 'Generate Outpass') setActiveTab('Leave Management');
-                          else if (qa.label === 'Scan QR Code') setActiveTab('Student QR Wallet');
-                          else if (qa.label === 'Send Notification') setActiveTab('Notifications');
-                          else if (qa.label === 'Emergency Alert') setActiveTab('Warden Command');
+                          if (currentRole === 'student') {
+                            if (qa.label === 'Request Outpass') setActiveTab('Dashboard');
+                            else if (qa.label === 'View QR Pass') setActiveTab('Student QR Wallet');
+                            else if (qa.label === 'Meal Coupon') setActiveTab('Dashboard');
+                            else if (qa.label === 'MAC Whitelist') setActiveTab('Dashboard');
+                          } else if (currentRole === 'parent') {
+                            if (qa.label === 'Contact Warden') setActiveTab('Parent Portal');
+                            else if (qa.label === 'Contact Security') setActiveTab('Parent Portal');
+                            else if (qa.label === 'View Child Pass') setActiveTab('Parent Portal');
+                            else if (qa.label === 'Emergency Ping') setActiveTab('Notifications');
+                          } else if (currentRole === 'security') {
+                            if (qa.label === 'Scan QR Pass') setActiveTab('Security Center');
+                            else if (qa.label === 'Log Vehicle') setActiveTab('Security Center');
+                            else if (qa.label === 'Face Match Scanner') setActiveTab('Security Center');
+                            else if (qa.label === 'Emergency Alarm') setActiveTab('System Logs');
+                          } else if (currentRole === 'warden') {
+                            if (qa.label === 'Authorize Leaves') setActiveTab('Leave Management');
+                            else if (qa.label === 'Lockdown Mode') setActiveTab('Warden Command');
+                            else if (qa.label === 'System Analytics') setActiveTab('Analytics');
+                            else if (qa.label === 'Curfew Ledger') setActiveTab('Warden Command');
+                          }
                         }}
                         className={`p-3 rounded-xl border flex items-center gap-2.5 text-left cursor-pointer transition-all duration-200 ${qa.color}`}
                       >

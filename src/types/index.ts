@@ -47,3 +47,24 @@ export interface SystemSettings {
   crowd: boolean;
   notes: string;
 }
+
+export interface Complaint {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentRoom: string;
+  category: 'Electrical' | 'Plumbing' | 'Wi-Fi' | 'Mess' | 'Other';
+  description: string;
+  status: 'Pending' | 'In Progress' | 'Resolved';
+  createdAt: string;
+}
+
+export interface MessFeedback {
+  id: string;
+  studentName: string;
+  meal: 'Breakfast' | 'Lunch' | 'Dinner';
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+

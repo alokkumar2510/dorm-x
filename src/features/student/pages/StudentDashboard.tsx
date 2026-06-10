@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { useAppState } from '../../../context/AppContext';
 import { 
@@ -12,10 +14,16 @@ import {
   Clock, 
   TrendingUp,
   MapPin,
-  Settings
+  Settings,
+  Plus,
+  Utensils,
+  ChevronRight,
+  ShieldCheck,
+  CalendarDays
 } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
-import { getQrCodeUrl, downloadQrCode } from '../../../utils/qr';
+import { downloadQrCode } from '../../../utils/qr';
+import { QRCodeImage } from '../../../components/ui/QRCodeImage';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 
@@ -30,12 +38,25 @@ const ATTENDANCE_DATA = [
 ];
 
 export const StudentDashboard: React.FC = () => {
-  const { user, leaves, triggerSOS, cancelRequest, applyLeave, setActiveTab, showToast } = useAppState();
+  const { 
+    user, leaves, triggerSOS, cancelRequest, applyLeave, 
+    setActiveTab, showToast, complaints, feedbacks, 
+    addComplaint, submitFeedback 
+  } = useAppState();
 
   const [leaveType, setLeaveType] = useState('Short Exit (30m)');
   const [reason, setReason] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  
+  // Complaint states
+  const [compCategory, setCompCategory] = useState<'Electrical' | 'Plumbing' | 'Wi-Fi' | 'Mess' | 'Other'>('Electrical');
+  const [compDesc, setCompDesc] = useState('');
+
+  // Feedback states
+  const [feedMeal, setFeedMeal] = useState<'Breakfast' | 'Lunch' | 'Dinner'>('Breakfast');
+  const [feedRating, setFeedRating] = useState(5);
+  const [feedComment, setFeedComment] = useState('');
   
   // Modal state
   const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
@@ -45,6 +66,29 @@ export const StudentDashboard: React.FC = () => {
   const [newMac, setNewMac] = useState('');
   const [messMeal, setMessMeal] = useState('Dinner');
   const [messQrId, setMessQrId] = useState<string | null>(null);
+
+  // Meal Reservation states
+  const [reservedMeals, setReservedMeals] = useState<Record<string, 'Veg' | 'Non-Veg' | 'Sick Diet'>>({});
+  const [bookingMealType, setBookingMealType] = useState<'Breakfast' | 'Lunch' | 'Dinner'>('Breakfast');
+  const [bookingDiet, setBookingDiet] = useState<'Veg' | 'Non-Veg' | 'Sick Diet'>('Veg');
+
+  const weeklyMenu = [
+    { day: 'Monday', breakfast: 'Idli & Sambar Vada', lunch: 'Rice, Dal, Mix Veg, Curd', dinner: 'Tandoori Roti, Paneer Masala, Gulab Jamun' },
+    { day: 'Tuesday', breakfast: 'Puri & Aloo Kasa', lunch: 'Rice, Fish Curry / Egg Curry', dinner: 'Roti, Dal Fry, Chicken Curry / Veg Kofta' },
+    { day: 'Wednesday', breakfast: 'Upma & Ghuguni', lunch: 'Rice, Dalma, Bhindi Bhaja', dinner: 'Jeera Rice, Mushroom Curry, Salad' },
+    { day: 'Thursday', breakfast: 'Masala Dosa & Sambar', lunch: 'Rice, Dal, Paneer Gravy, Papad', dinner: 'Roti, Dal Fry, Mix Veg Curry' },
+    { day: 'Friday', breakfast: 'Aloo Paratha & Curd', lunch: 'Rice, Egg Masala / Veg Do Pyaza', dinner: 'Roti, Chicken Kadai / Mushroom Butter Masala' },
+    { day: 'Saturday', breakfast: 'Puri & Chana Masala', lunch: 'Rice, Dal, Soya Chunk Curry', dinner: 'Fried Rice, Chilli Chicken / Veg Manchurian' },
+    { day: 'Sunday', breakfast: 'Uttapam & Coconut Chutney', lunch: 'Special Rice, Chicken Curry / Paneer Jhal', dinner: 'Roti, Dal Tadka, Aloo Fry' },
+  ];
+
+  const handleMealReservation = (e: React.FormEvent) => {
+    e.preventDefault();
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const key = `${bookingMealType}-${today}`;
+    setReservedMeals(prev => ({ ...prev, [key]: bookingDiet }));
+    showToast(`Successfully Reserved ${bookingDiet} for ${bookingMealType} (${today})!`, 'success');
+  };
 
   const addMac = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +109,7 @@ export const StudentDashboard: React.FC = () => {
   const studentLeaves = leaves.filter((l) => l.stId === user.id);
   const pendingLeaves = studentLeaves.filter((l) => l.status === 'Pending');
   const approvedLeaves = studentLeaves.filter((l) => l.status === 'Approved');
+  const studentComplaints = (complaints || []).filter((c) => c.studentId === user.id);
   
   // Find active outpass (student has exited but not yet returned)
   const activeOutpass = studentLeaves.find((l) => l.exitTime && !l.entryTime);
@@ -79,7 +124,7 @@ export const StudentDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 text-white">
-      {/* 1. TOP PROFILE PROFILE SECTION */}
+      {/* 1. TOP PROFILE SECTION */}
       <motion.div 
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -90,7 +135,7 @@ export const StudentDashboard: React.FC = () => {
           <User className="w-40 h-40" />
         </div>
         <div className="flex items-center gap-6 relative z-10">
-          <div className="w-16 h-16 bg-gradient-to-tr from-cyan-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <div className="w-16 h-16 bg-gradient-to-tr from-cyan-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/20 border border-white/10">
             <span className="text-2xl font-black italic uppercase">
               {user.name.slice(0, 2)}
             </span>
@@ -123,13 +168,12 @@ export const StudentDashboard: React.FC = () => {
         {/* LEFT COLUMN: STATS AND LEAVE REQUEST */}
         <div className="lg:col-span-8 space-y-8">
           
-          {/* SASS OVERVIEW CARDS */}
+          {/* STATS OVERVIEW CARDS (SECURED: Warden redirection removed) */}
           <div className="grid grid-cols-3 gap-4">
             <motion.div 
-              onClick={() => setActiveTab('Analytics')}
-              whileHover={{ y: -4, scale: 1.01 }}
+              whileHover={{ y: -2, scale: 1.01 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              className="glass-card p-6 rounded-2xl cursor-pointer hover:border-cyan-500/30 transition-all duration-200"
+              className="glass-card p-6 rounded-2xl border-white/5 transition-all duration-200"
             >
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Attendance Rate</p>
               <div className="flex items-baseline gap-2">
@@ -141,7 +185,7 @@ export const StudentDashboard: React.FC = () => {
               onClick={() => setActiveTab('Student QR Wallet')}
               whileHover={{ y: -4, scale: 1.01 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              className="glass-card p-6 rounded-2xl cursor-pointer hover:border-cyan-500/30 transition-all duration-200"
+              className="glass-card p-6 rounded-2xl cursor-pointer border-white/5 hover:border-cyan-500/30 transition-all duration-200"
             >
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Active Passes</p>
               <span className="text-3xl font-black tracking-tight text-white">
@@ -149,16 +193,14 @@ export const StudentDashboard: React.FC = () => {
               </span>
             </motion.div>
             <motion.div 
-              onClick={() => setActiveTab('Leave Management')}
-              whileHover={{ y: -4, scale: 1.01 }}
+              whileHover={{ y: -2, scale: 1.01 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              className="glass-card p-6 rounded-2xl cursor-pointer hover:border-cyan-500/30 transition-all duration-200"
+              className="glass-card p-6 rounded-2xl border-white/5 transition-all duration-200"
             >
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Requests</p>
               <span className="text-3xl font-black tracking-tight text-white">{studentLeaves.length}</span>
             </motion.div>
           </div>
-
 
           {/* ATTENDANCE ANALYTICS CHART */}
           <div className="glass-panel p-8 rounded-[2.5rem]">
@@ -249,6 +291,301 @@ export const StudentDashboard: React.FC = () => {
                 className="w-full py-4 bg-white text-black font-black rounded-xl text-xs uppercase tracking-widest shadow-lg hover:bg-slate-100 transition-all cursor-pointer mt-2"
               >
                 Transmit Protocol Request
+              </button>
+            </form>
+          </motion.div>
+
+          {/* OUTPASS REQUEST HISTORY TRACKER */}
+          <div className="glass-panel p-8 rounded-[2.5rem] space-y-4">
+            <h3 className="text-lg font-black uppercase italic tracking-tighter text-white mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-[#00E5FF]" /> Outpass Tracker & Travel Ledger
+            </h3>
+            {studentLeaves.length === 0 ? (
+              <p className="text-[10px] text-slate-500 py-6 uppercase font-bold text-center">No travel passes filed</p>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 log-scroll">
+                {[...studentLeaves].reverse().map(l => (
+                  <div key={l.id} className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black uppercase text-white">{l.type}</span>
+                        <span className="text-[8px] text-slate-500 font-mono">#{l.id}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-medium">Reason: {l.reason}</p>
+                      <p className="text-[9px] text-slate-500">Validity: {l.dateRange}</p>
+                    </div>
+                    
+                    <div className="flex flex-col md:items-end gap-1.5">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase self-start md:self-auto ${
+                        l.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                        l.status === 'Pending' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
+                        l.status === 'EMERGENCY' ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' :
+                        'bg-red-500/10 text-red-400 border border-red-500/20'
+                      }`}>
+                        {l.status}
+                      </span>
+                      {l.exitTime && (
+                        <p className="text-[8px] text-amber-500 font-bold uppercase">Exit: {new Date(l.exitTime).toLocaleString()}</p>
+                      )}
+                      {l.entryTime && (
+                        <p className="text-[8px] text-emerald-400 font-bold uppercase">Entry: {new Date(l.entryTime).toLocaleString()}</p>
+                      )}
+                      {!l.exitTime && l.status === 'Pending' && (
+                        <button
+                          onClick={() => cancelRequest(l.id)}
+                          className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[7px] font-black uppercase rounded cursor-pointer transition-all"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* MESS MENU & MEAL RESERVATION PANEL */}
+          <div className="glass-panel p-8 rounded-[2.5rem] space-y-6">
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <h3 className="text-lg font-black uppercase italic tracking-tighter text-white flex items-center gap-2">
+                <Utensils className="w-5 h-5 text-[#00FFB2]" /> Weekly Dining Menu & Reservation
+              </h3>
+              <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[8px] font-black uppercase">
+                Hostel Mess A
+              </span>
+            </div>
+
+            {/* Menu List */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/5 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                    <th className="py-2.5 px-3">Day</th>
+                    <th className="py-2.5 px-3">Breakfast</th>
+                    <th className="py-2.5 px-3">Lunch</th>
+                    <th className="py-2.5 px-3">Dinner</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeklyMenu.map((m, idx) => {
+                    const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+                    const isToday = m.day === todayName;
+                    return (
+                      <tr 
+                        key={idx} 
+                        className={`border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors font-semibold text-slate-300 ${
+                          isToday ? 'bg-indigo-950/20 border-indigo-500/20 text-white font-extrabold' : ''
+                        }`}
+                      >
+                        <td className="py-3 px-3 uppercase text-[10px]">
+                          {m.day} {isToday && <span className="ml-1 px-1 py-0.5 rounded bg-indigo-500 text-white text-[7px] font-black">Today</span>}
+                        </td>
+                        <td className="py-3 px-3 text-[10px] text-slate-400">{m.breakfast}</td>
+                        <td className="py-3 px-3 text-[10px] text-slate-400">{m.lunch}</td>
+                        <td className="py-3 px-3 text-[10px] text-slate-400">{m.dinner}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Reservation Form */}
+            <form onSubmit={handleMealReservation} className="p-5 rounded-2xl bg-black/40 border border-white/5 space-y-4">
+              <p className="text-[10px] font-black uppercase text-slate-400">Meal Reservation & Sick Diet Requests</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-500">Select Meal</label>
+                  <select
+                    value={bookingMealType}
+                    onChange={(e) => setBookingMealType(e.target.value as any)}
+                    className="w-full p-3.5 rounded-xl outline-none font-bold text-xs bg-[#030712] border border-white/10 text-white"
+                  >
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-500">Diet Preference</label>
+                  <select
+                    value={bookingDiet}
+                    onChange={(e) => setBookingDiet(e.target.value as any)}
+                    className="w-full p-3.5 rounded-xl outline-none font-bold text-xs bg-[#030712] border border-white/10 text-white"
+                  >
+                    <option value="Veg">Veg (Standard)</option>
+                    <option value="Non-Veg">Non-Veg (If Scheduled)</option>
+                    <option value="Sick Diet">Sick Diet (Khichdi & Curd)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    className="w-full py-3.5 bg-[#00FFB2] hover:bg-[#00FFB2]/85 text-black font-black rounded-xl text-xs uppercase tracking-widest transition-all cursor-pointer"
+                  >
+                    Book Meal
+                  </button>
+                </div>
+              </div>
+
+              {/* Reserved meals list */}
+              {Object.keys(reservedMeals).length > 0 && (
+                <div className="pt-3 border-t border-white/5 space-y-2">
+                  <p className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Booked Meals & Reservations</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(reservedMeals).map(([mealKey, pref]) => (
+                      <span key={mealKey} className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[9px] font-bold text-slate-300 uppercase">
+                        {mealKey.split('-')[0]}: <strong className="text-[#00FFB2]">{pref}</strong>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+
+          {/* MAINTENANCE COMPLAINTS PANEL */}
+          <motion.div 
+            whileHover={{ y: -2 }}
+            className="glass-panel p-8 rounded-[2.5rem] relative overflow-hidden text-left"
+          >
+            <h3 className="text-lg font-black uppercase italic tracking-tighter text-white mb-6 flex items-center gap-2">
+              <Settings className="w-5 h-5 text-indigo-400" /> Lodge Maintenance Complaint
+            </h3>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              addComplaint(compCategory, compDesc);
+              setCompDesc('');
+            }} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Category</label>
+                  <select
+                    value={compCategory}
+                    onChange={(e) => setCompCategory(e.target.value as any)}
+                    className="w-full p-4 rounded-xl outline-none font-bold text-xs bg-[#030712] border border-white/10 text-white"
+                  >
+                    <option value="Electrical" className="bg-slate-900">Electrical</option>
+                    <option value="Plumbing" className="bg-slate-900">Plumbing</option>
+                    <option value="Wi-Fi" className="bg-slate-900">Wi-Fi</option>
+                    <option value="Mess" className="bg-slate-900">Mess</option>
+                    <option value="Other" className="bg-slate-900">Other</option>
+                  </select>
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Issue Description</label>
+                  <input
+                    type="text"
+                    value={compDesc}
+                    onChange={(e) => setCompDesc(e.target.value)}
+                    placeholder="Describe the maintenance issue..."
+                    required
+                    className="w-full p-4 rounded-xl outline-none text-xs bg-white/5 border border-white/10 text-white placeholder-slate-500"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-lg transition-all cursor-pointer"
+              >
+                Submit Maintenance Complaint
+              </button>
+            </form>
+
+            {/* Complaints list */}
+            {studentComplaints.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-white/5 space-y-3">
+                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Your Complaints</h4>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 log-scroll">
+                  {studentComplaints.map(c => (
+                    <div key={c.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-bold text-white uppercase">{c.category}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">{c.description}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
+                        c.status === 'Resolved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                        c.status === 'In Progress' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                        'bg-red-500/10 text-red-400 border border-red-500/20'
+                      }`}>
+                        {c.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+
+          {/* MESS FEEDBACK PANEL */}
+          <motion.div 
+            whileHover={{ y: -2 }}
+            className="glass-panel p-8 rounded-[2.5rem] relative overflow-hidden text-left"
+          >
+            <h3 className="text-lg font-black uppercase italic tracking-tighter text-white mb-6 flex items-center gap-2">
+              <Flame className="w-5 h-5 text-[#00FFB2]" /> Dining Meal Feedback
+            </h3>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              submitFeedback(feedMeal, feedRating, feedComment);
+              setFeedComment('');
+              setFeedRating(5);
+            }} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Meal</label>
+                  <select
+                    value={feedMeal}
+                    onChange={(e) => setFeedMeal(e.target.value as any)}
+                    className="w-full p-4 rounded-xl outline-none font-bold text-xs bg-[#030712] border border-white/10 text-white"
+                  >
+                    <option value="Breakfast" className="bg-slate-900">Breakfast</option>
+                    <option value="Lunch" className="bg-slate-900">Lunch</option>
+                    <option value="Dinner" className="bg-slate-900">Dinner</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">Rating</label>
+                  <div className="flex gap-1 pt-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setFeedRating(star)}
+                        className={`text-xl cursor-pointer ${
+                          star <= feedRating ? 'text-amber-400' : 'text-slate-600'
+                        }`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Comments</label>
+                  <input
+                    type="text"
+                    value={feedComment}
+                    onChange={(e) => setFeedComment(e.target.value)}
+                    placeholder="E.g., food was good"
+                    className="w-full p-4 rounded-xl outline-none text-xs bg-white/5 border border-white/10 text-white placeholder-slate-500"
+                  />
+                </div>
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full py-4 bg-[#00FFB2] hover:bg-[#00FFB2]/85 text-black font-black rounded-xl text-xs uppercase tracking-widest shadow-lg transition-all cursor-pointer"
+              >
+                Submit Dining Feedback
               </button>
             </form>
           </motion.div>
@@ -412,9 +749,8 @@ export const StudentDashboard: React.FC = () => {
               {messQrId && (
                 <div className="p-4 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center gap-3">
                   <div className="bg-white p-3 rounded-2xl">
-                    <img
-                      src={getQrCodeUrl(messQrId)}
-                      alt="Mess QR"
+                    <QRCodeImage
+                      text={`DORMX_AUTH_${messQrId}`}
                       className="w-28 h-28"
                     />
                   </div>
@@ -490,9 +826,8 @@ export const StudentDashboard: React.FC = () => {
         {selectedLeaveId && (
           <div className="flex flex-col items-center gap-6 pb-6">
             <div className="bg-white p-6 rounded-[3rem]">
-              <img
-                src={getQrCodeUrl(selectedLeaveId)}
-                alt="QR Code Access Token"
+              <QRCodeImage
+                text={`DORMX_AUTH_${selectedLeaveId}`}
                 className="w-52 h-52 rounded-2xl mx-auto"
               />
             </div>
