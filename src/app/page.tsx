@@ -2,98 +2,67 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { useAppState } from '@/context/AppContext';
 import { 
   Zap, Bot, Sparkles, Send, Shield, Activity, Users, FileText, 
   Bell, Check, X, ShieldAlert, ArrowRight, ShieldCheck, ChevronRight, 
-  User, Key, Database, Mail, Phone, Calendar, Clock, MapPin, Eye, Lock,
-  Smartphone, Monitor, RefreshCw, BarChart2, QrCode
+  User, Key, Database, Mail, Phone, Calendar, Clock, MapPin, Lock,
+  Smartphone, Monitor, RefreshCw, BarChart2, QrCode, Star, Play,
+  CheckCircle2, AlertTriangle, Moon, Sun
 } from 'lucide-react';
 
-// Animated Counter Component using framer-motion hooks
-const AnimatedCounter: React.FC<{ value: number; suffix?: string; duration?: number }> = ({ value, suffix = '', duration = 2 }) => {
+// Animated Numbers Counter for Live Telemetry
+const AnimatedCounter: React.FC<{ value: number; suffix?: string; delay?: number }> = ({ value, suffix = '', delay = 0 }) => {
   const [count, setCount] = useState(0);
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: '-100px 0px' });
+  const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (isInView) {
-      let start = 0;
-      const end = value;
-      if (start === end) return;
+    let start = 0;
+    const end = value;
+    const duration = 2.5; // seconds
+    const totalSteps = 60;
+    const stepTime = (duration * 1000) / totalSteps;
+    const increment = Math.ceil(end / totalSteps);
 
-      const totalMiliseconds = duration * 1000;
-      const incrementTime = Math.max(Math.floor(totalMiliseconds / end), 20);
-      
+    const timeout = setTimeout(() => {
       const timer = setInterval(() => {
-        start += Math.ceil(end / (totalMiliseconds / incrementTime));
+        start += increment;
         if (start >= end) {
           clearInterval(timer);
           setCount(end);
         } else {
           setCount(start);
         }
-      }, incrementTime);
-
+      }, stepTime);
       return () => clearInterval(timer);
-    }
-  }, [isInView, value, duration]);
+    }, delay * 1000);
 
-  return (
-    <span ref={ref} className="tabular-nums">
-      {count.toLocaleString()}{suffix}
-    </span>
-  );
+    return () => clearTimeout(timeout);
+  }, [value, delay]);
+
+  return <span ref={ref} className="tabular-nums">{count.toLocaleString()}{suffix}</span>;
 };
 
 export default function LandingPage() {
-  const { user } = useAppState();
+  const { user, theme, toggleTheme } = useAppState();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'student' | 'warden' | 'security' | 'parent'>('student');
-  const [aiQuery, setAiQuery] = useState('');
-  const [aiMessages, setAiMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([
+  const [activeModule, setActiveModule] = useState<'student' | 'warden' | 'security' | 'parent'>('student');
+  const [sandboxQuery, setSandboxQuery] = useState('');
+  const [sandboxMessages, setSandboxMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([
     {
       role: 'assistant',
-      content: 'Hello! Ask me anything about DORM-X policies, leave systems, or security rules.'
+      content: `### 🤖 Sentinel AI Sandbox
+Welcome to DORM-X AI. You can test my capabilities directly in this sandbox!
+
+Try asking me:
+- **"What is the outpass curfew rule?"**
+- **"Generate system status statistics"**
+- **"Explain warden leave approvals flow"**`
     }
   ]);
-  const [aiIsTyping, setAiIsTyping] = useState(false);
-  const [flowStep, setFlowStep] = useState(0);
-
-  // Auto transition the solution flow diagram steps
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFlowStep((prev) => (prev + 1) % 4);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleAiAsk = (text: string) => {
-    if (!text.trim() || aiIsTyping) return;
-    
-    const newMsgs = [...aiMessages, { role: 'user', content: text } as const];
-    setAiMessages(newMsgs);
-    setAiQuery('');
-    setAiIsTyping(true);
-
-    setTimeout(() => {
-      let reply = '';
-      const q = text.toLowerCase();
-      if (q.includes('policy') || q.includes('curfew')) {
-        reply = 'Hostel curfew is strictly 9:00 PM. Leave requests must be filed 2 hours in advance. Late returns trigger warden alarms.';
-      } else if (q.includes('apply') || q.includes('outpass')) {
-        reply = 'Go to your Student Portal, select Outpass request, set dates/reason, and submit. Warden receives it instantly.';
-      } else if (q.includes('report') || q.includes('stat')) {
-        reply = 'Generating system metrics... Total Managed: 12,450 Residents. Active Leaves: 312. SOS triggers: 0. System Security: Optimal.';
-      } else {
-        reply = 'I am Sentinel AI. I can explain outpass rules, verify parent notification syncs, or run real-time occupancy reports.';
-      }
-
-      setAiMessages([...newMsgs, { role: 'assistant', content: reply }]);
-      setAiIsTyping(false);
-    }, 1200);
-  };
+  const [sandboxLoading, setSandboxLoading] = useState(false);
+  const sandboxEndRef = useRef<HTMLDivElement>(null);
 
   const handleCTA = () => {
     if (user) {
@@ -103,728 +72,647 @@ export default function LandingPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden selection:bg-cyan-500/30 selection:text-cyan-200">
+  const handleSandboxSend = async (text: string) => {
+    if (!text.trim() || sandboxLoading) return;
+    const userMsg = { role: 'user' as const, content: text };
+    setSandboxMessages(prev => [...prev, userMsg]);
+    setSandboxQuery('');
+    setSandboxLoading(true);
+
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://dorm-x-server-production.up.railway.app';
+      const response = await fetch(`${backendUrl}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await response.json();
       
-      {/* BACKGROUND GRADIENT MESH */}
+      if (data.reply) {
+        setSandboxMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      } else {
+        setSandboxMessages(prev => [...prev, { role: 'assistant', content: 'Sandbox connection active, but no response payload returned.' }]);
+      }
+    } catch (error) {
+      // Fallback response for offline sandbox testing
+      setTimeout(() => {
+        let reply = '';
+        const q = text.toLowerCase();
+        if (q.includes('curfew') || q.includes('outpass') || q.includes('rule')) {
+          reply = `### ⏰ Outpass & Curfew Policy
+- **Curfew Time**: Strictly 9:00 PM.
+- **Leave Request Deadline**: Requests must be submitted at least 2 hours prior to exit.
+- **Escalation**: Unapproved late returns trigger automatic notification ciphers to Warden & Parents.`;
+        } else if (q.includes('status') || q.includes('stat') || q.includes('generate')) {
+          reply = `### 📊 Real-Time Telemetry Report
+- **Total Residents**: 12,450
+- **Active Outpasses**: 389 (100% Verified)
+- **SOS Triggers**: 0 (Operational Standby)
+- **System Integrity**: 99.99% Encrypted`;
+        } else {
+          reply = `I am DORM-X Sentinel AI. I supervise digital outpass workflows, sync parent security updates, and deliver live telemetry logs.`;
+        }
+        setSandboxMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+      }, 1000);
+    } finally {
+      setSandboxLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    sandboxEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [sandboxMessages, sandboxLoading]);
+
+  // SVG Custom Telemetry Sparkline Animation Config
+  const pathVariants = {
+    hidden: { pathLength: 0, opacity: 0 },
+    visible: { 
+      pathLength: 1, 
+      opacity: 1,
+      transition: { duration: 2, ease: "easeInOut" }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#030712] text-white overflow-x-hidden selection:bg-[#00E5FF]/20 selection:text-[#00E5FF]">
+      
+      {/* 1. DYNAMIC AURORA & GRID MESH BACKGROUND */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <motion.div 
-          animate={{
-            x: [0, 40, -20, 0],
-            y: [0, -60, 40, 0],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-cyan-500/10 blur-[120px]" 
-        />
-        <motion.div 
-          animate={{
-            x: [0, -50, 30, 0],
-            y: [0, 40, -50, 0],
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute top-[30%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px]" 
-        />
-        <motion.div 
-          animate={{
-            x: [0, 30, -30, 0],
-            y: [0, 30, 30, 0],
-          }}
-          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-          className="absolute bottom-[-10%] left-[20%] w-[60vw] h-[40vw] rounded-full bg-emerald-500/5 blur-[150px]" 
-        />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))]" />
+        <div className="absolute top-0 left-1/4 w-[60vw] h-[60vw] rounded-full bg-[radial-gradient(circle,rgba(0,229,255,0.06)_0%,transparent_70%)] blur-[100px]" />
+        <div className="absolute top-1/3 right-1/4 w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle,rgba(124,58,237,0.07)_0%,transparent_70%)] blur-[120px]" />
+        <div className="absolute bottom-10 left-10 w-[55vw] h-[55vw] rounded-full bg-[radial-gradient(circle,rgba(0,255,178,0.04)_0%,transparent_70%)] blur-[130px]" />
         
-        {/* Particle/Grid Lines overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+        {/* Fine grid line overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:5rem_5rem] opacity-70" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,rgba(0,229,255,0.1),transparent_80%)]" />
       </div>
 
-      {/* HEADER NAVBAR */}
-      <header className="sticky top-0 z-[100] w-full border-b border-white/5 bg-slate-950/70 backdrop-blur-md">
+      {/* 2. PREMIUM STICKY NAVBAR */}
+      <header className="sticky top-0 z-[100] w-full border-b border-white/[0.06] bg-[#030712]/70 backdrop-blur-xl transition-all">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <Zap className="text-white w-5 h-5" />
+            <div className="w-10 h-10 bg-gradient-to-tr from-[#00E5FF] to-[#7C3AED] rounded-xl flex items-center justify-center shadow-lg shadow-[#00E5FF]/20 border border-[#00E5FF]/20 relative group overflow-hidden">
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+              <Zap className="text-white w-5 h-5 relative z-10" />
             </div>
-            <span className="text-xl font-black italic tracking-tighter uppercase text-white">
+            <span className="text-xl font-extrabold tracking-tighter uppercase bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-400">
               DORM-X
             </span>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-xs font-semibold tracking-wider uppercase text-slate-400 hover:text-cyan-400 transition-colors">Features</a>
-            <a href="#modules" className="text-xs font-semibold tracking-wider uppercase text-slate-400 hover:text-cyan-400 transition-colors">Modules</a>
-            <a href="#flow" className="text-xs font-semibold tracking-wider uppercase text-slate-400 hover:text-cyan-400 transition-colors">Platform flow</a>
-            <a href="#analytics" className="text-xs font-semibold tracking-wider uppercase text-slate-400 hover:text-cyan-400 transition-colors">Analytics</a>
-            <a href="#ai" className="text-xs font-semibold tracking-wider uppercase text-slate-400 hover:text-cyan-400 transition-colors">AI Core</a>
+          {/* Navigation Links */}
+          <nav className="hidden lg:flex items-center gap-8">
+            {['features', 'modules', 'analytics', 'security', 'ai-core'].map((link) => (
+              <a 
+                key={link}
+                href={`#${link}`} 
+                className="text-xs font-bold tracking-widest uppercase text-slate-400 hover:text-[#00E5FF] hover:translate-y-[-1px] transition-all"
+              >
+                {link.replace('-', ' ')}
+              </a>
+            ))}
           </nav>
 
+          {/* Action Buttons */}
           <div className="flex items-center gap-4">
+            {/* Theme Toggle */}
+            <button 
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-xl border border-white/[0.08] hover:border-white/20 flex items-center justify-center cursor-pointer transition-colors"
+              title="Toggle Theme Mode"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4 text-slate-400 hover:text-white" /> : <Moon className="w-4 h-4 text-slate-400 hover:text-white" />}
+            </button>
+
+            <button 
+              onClick={() => router.push('/login')}
+              className="hidden sm:block text-xs font-bold tracking-wider uppercase text-slate-300 hover:text-white transition-colors px-4 py-2"
+            >
+              Login
+            </button>
+
             <button 
               id="nav-get-started-btn"
-              aria-label={user ? 'Go to your DORM-X dashboard' : 'Get started with DORM-X'}
               onClick={handleCTA}
-              className="px-5 py-2.5 bg-white text-black hover:bg-slate-100 rounded-xl text-xs font-extrabold uppercase tracking-widest cursor-pointer transition-all shadow-md hover:shadow-lg shadow-white/5 active:scale-95"
+              className="px-5 py-2.5 bg-gradient-to-r from-[#00E5FF] to-[#7C3AED] hover:from-[#00E5FF] hover:to-[#00E5FF] text-white rounded-xl text-xs font-extrabold uppercase tracking-widest cursor-pointer transition-all shadow-md active:scale-95 border border-white/10"
             >
-              {user ? 'Go To Dashboard' : 'Get Started'}
+              {user ? 'Go To Dashboard' : 'Request Demo'}
             </button>
           </div>
         </div>
       </header>
 
-      {/* HERO SECTION */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 pt-16 pb-24 lg:pt-28 lg:pb-36 grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+      {/* 3. HERO SECTION */}
+      <section className="relative z-10 max-w-7xl mx-auto px-6 pt-20 pb-28 lg:pt-32 lg:pb-40 grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+        
+        {/* Left column info */}
         <div className="lg:col-span-6 space-y-8 text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Next-Gen Campus Telemetry</span>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/[0.08] text-slate-300 shadow-inner"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#00E5FF]" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#00E5FF]">Next-Gen Campus Telemetry</span>
+          </motion.div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]">
-            Reinventing Hostel Management <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-400 to-cyan-400 bg-300% animate-shimmer">
-              for the AI Era.
+          <motion.h1 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-4xl sm:text-5xl lg:text-[3.5rem] font-black tracking-tight text-white leading-[1.08] uppercase"
+          >
+            Reinventing <br />
+            Hostel Management <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00E5FF] via-[#7C3AED] to-[#00FFB2] bg-300% animate-shimmer">
+              For The AI Era.
             </span>
-          </h1>
+          </motion.h1>
 
-          <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-xl">
-            DORM-X unifies student leave management, campus security, QR access control, emergency response, and parent communication into one intelligent platform.
-          </p>
+          <motion.p 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-xl font-medium"
+          >
+            DORM-X is an intelligent campus operating system combining hostel management, security monitoring, digital outpasses, emergency response, and parent communication into one platform.
+          </motion.p>
 
-          <div className="flex flex-wrap gap-4 pt-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="flex flex-wrap gap-4 pt-4"
+          >
             <button 
-              id="hero-get-started-btn"
-              aria-label="Get started free with DORM-X"
               onClick={handleCTA}
-              className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/35 active:scale-95"
+              className="px-8 py-4 bg-gradient-to-r from-[#00E5FF] to-[#7C3AED] hover:brightness-110 text-white rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all shadow-lg shadow-[#00E5FF]/10 active:scale-95 border border-white/10 flex items-center gap-2"
             >
-              Get Started Free <ArrowRight className="inline w-4 h-4 ml-1.5" />
+              Get Started <ArrowRight className="w-4 h-4" />
             </button>
             <a 
-              id="hero-watch-demo-lnk"
-              aria-label="Watch DORM-X platform interactive demo"
-              href="#flow"
-              className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all active:scale-95 text-white flex items-center justify-center"
+              href="#modules"
+              className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/[0.08] rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all active:scale-95 text-white flex items-center justify-center gap-2"
             >
-              Watch Demo
+              <Play className="w-3.5 h-3.5 text-[#00FFB2]" /> Watch Demo
             </a>
-          </div>
+          </motion.div>
         </div>
 
-        {/* Floating 3D Dashboard Mockups */}
-        <div className="lg:col-span-6 relative h-[450px] sm:h-[520px] w-full flex items-center justify-center">
-          {/* Main dashboard glow wrapper */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/10 to-indigo-500/10 rounded-full filter blur-3xl" />
+        {/* Right column: 3D floating dashboard mockup */}
+        <div className="lg:col-span-6 relative h-[500px] w-full flex items-center justify-center">
+          <div className="absolute w-[450px] h-[450px] bg-[#00E5FF]/5 rounded-full filter blur-[100px] animate-pulse" />
+          
+          <div className="relative w-full h-full flex items-center justify-center transform perspective-1000 rotate-x-6 rotate-y-[-12] rotate-z-3 scale-95 md:scale-100">
+            
+            {/* Card 1: Student QR Pass */}
+            <motion.div 
+              animate={{ y: [0, -12, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-0 left-4 w-60 glass-panel p-5 rounded-[2rem] border-[#00E5FF]/20 shadow-2xl z-20"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[#00E5FF]/10 flex items-center justify-center border border-[#00E5FF]/20">
+                    <User className="w-4 h-4 text-[#00E5FF]" />
+                  </div>
+                  <div>
+                    <h4 className="text-[9px] font-black uppercase text-white tracking-wider">Student Wallet</h4>
+                    <p className="text-[7px] text-slate-500 font-extrabold uppercase">Gate Pass Ticket</p>
+                  </div>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-[#00FFB2] animate-pulse" />
+              </div>
+              <div className="bg-black/40 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5 mb-3 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-[#00E5FF]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <QrCode className="w-24 h-24 text-slate-200" />
+                <div className="laser-line rounded-lg opacity-40"></div>
+                <p className="text-[8px] font-mono text-[#00E5FF] mt-2 tracking-widest uppercase font-extrabold">DX-8201-SECURE</p>
+              </div>
+              <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400">
+                <span>Gate Status: APPROVED</span>
+                <span className="text-[#00FFB2]">Night Outpass</span>
+              </div>
+            </motion.div>
 
-          {/* Card 1: Student QR Pass */}
-          <motion.div 
-            animate={{ y: [0, -12, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute top-4 left-4 sm:left-12 w-64 glass-panel p-5 rounded-[2rem] border-cyan-400/20 shadow-2xl z-20"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                  <User className="w-4 h-4 text-cyan-400" />
+            {/* Card 2: Warden Approvals Queue */}
+            <motion.div 
+              animate={{ y: [0, 10, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+              className="absolute bottom-6 right-4 w-64 glass-panel p-5 rounded-[2rem] border-white/10 shadow-2xl z-10"
+            >
+              <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-3.5 h-3.5 text-[#7C3AED]" />
+                  <span className="text-[8px] font-black uppercase tracking-wider text-slate-300">Approval Queue</span>
                 </div>
-                <div>
-                  <h4 className="text-[10px] font-black uppercase text-white">Student QR Wallet</h4>
-                  <p className="text-[8px] text-slate-500">Active Leave Ticket</p>
-                </div>
+                <span className="px-2 py-0.5 bg-[#7C3AED]/10 text-[#7C3AED] border border-[#7C3AED]/30 rounded-full text-[6px] font-black uppercase">Warden Desk</span>
               </div>
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-            </div>
-            <div className="bg-white/5 rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5 mb-3">
-              <QrCode className="w-20 h-20 text-cyan-400 opacity-80" />
-              <p className="text-[9px] font-mono text-cyan-400 mt-2 tracking-widest uppercase">PX-8290-SECURE</p>
-            </div>
-            <div className="flex justify-between items-center text-[9px] font-bold text-slate-400">
-              <span>Gate Status: APPROVED</span>
-              <span className="text-cyan-400">Night Leave</span>
-            </div>
-          </motion.div>
+              <div className="space-y-3">
+                {[
+                  { name: 'Alok Kumar', type: 'VACATION', time: '10 mins ago' },
+                  { name: 'Sameer Sen', type: 'OUTPASS', time: 'Just now' }
+                ].map((item, idx) => (
+                  <div key={idx} className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[9px] font-bold text-white">{item.name}</p>
+                      <p className="text-[7px] text-[#7C3AED] font-extrabold uppercase">{item.type} | {item.time}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button className="w-5 h-5 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white cursor-pointer transition-colors">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button className="w-5 h-5 rounded-md bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 hover:bg-red-500 hover:text-white cursor-pointer transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
 
-          {/* Card 2: Warden Occupancy Analytics */}
-          <motion.div 
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-            className="absolute top-28 right-4 sm:right-12 w-64 glass-panel p-5 rounded-[2rem] border-white/5 shadow-2xl z-10"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                  <Activity className="w-4 h-4 text-indigo-400" />
-                </div>
-                <div>
-                  <h4 className="text-[10px] font-black uppercase text-white">Warden Command</h4>
-                  <p className="text-[8px] text-slate-500">Block BH-1 Telemetry</p>
-                </div>
+            {/* Card 3: Security SOC Scanner Logs */}
+            <motion.div 
+              animate={{ x: [0, 8, 0] }}
+              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+              className="absolute top-1/4 right-0 w-60 glass-panel p-4 rounded-[1.8rem] border-white/5 shadow-2xl z-30"
+            >
+              <div className="flex items-center gap-2 mb-3 border-b border-white/5 pb-2">
+                <Activity className="w-3.5 h-3.5 text-[#00FFB2]" />
+                <span className="text-[8px] font-black uppercase tracking-wider text-slate-300">Live SOC Scan Logs</span>
               </div>
-              <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-[7px] text-emerald-400 font-extrabold uppercase">Safe</span>
-            </div>
-            <div className="space-y-2 mb-2">
-              <div>
-                <div className="flex justify-between text-[8px] font-black uppercase mb-1">
-                  <span>Dorm Occupancy</span>
-                  <span className="text-indigo-400">82%</span>
+              <div className="space-y-2.5 font-mono text-[7px]">
+                <div className="flex items-center justify-between text-emerald-400 font-extrabold">
+                  <span>● SCAN ENTRY - OK</span>
+                  <span>09:41 AM</span>
                 </div>
-                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: '82%' }} />
+                <div className="text-slate-400 truncate">Resident: Alok Kumar [PULAHA-203]</div>
+                <div className="border-t border-white/5 my-1" />
+                <div className="flex items-center justify-between text-yellow-400 font-extrabold">
+                  <span>● COURIER RECEIVED</span>
+                  <span>09:42 AM</span>
                 </div>
+                <div className="text-slate-400 truncate">Vendor: Amazon | Tracking: AZ-829</div>
               </div>
-              <div>
-                <div className="flex justify-between text-[8px] font-black uppercase mb-1">
-                  <span>Outpass Checked Out</span>
-                  <span className="text-cyan-400">18%</span>
-                </div>
-                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-cyan-500 rounded-full" style={{ width: '18%' }} />
-                </div>
-              </div>
-            </div>
-          </motion.div>
+            </motion.div>
 
-          {/* Card 3: Security Scan Log */}
-          <motion.div 
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            className="absolute bottom-6 left-8 sm:left-24 w-60 glass-panel p-4 rounded-3xl border-white/5 shadow-2xl z-30"
-          >
-            <h4 className="text-[9px] font-black uppercase text-slate-400 tracking-wider mb-2 flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-cyan-400" /> Security Logs
-            </h4>
-            <div className="space-y-1.5 text-[8px] font-mono">
-              <div className="flex justify-between border-b border-white/5 pb-1">
-                <span className="text-emerald-400">✓ PASS VALID</span>
-                <span className="text-slate-500">20:41</span>
+            {/* Card 4: Parent Live Alerts */}
+            <motion.div 
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 5.8, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+              className="absolute bottom-0 left-10 w-56 glass-panel p-4 rounded-[1.8rem] border-[#7C3AED]/20 shadow-2xl z-20"
+            >
+              <div className="flex items-center gap-2 mb-2.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                <span className="text-[8px] font-black uppercase tracking-wider text-slate-200">Parent Security Sync</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-1">
-                <span className="text-slate-400">EXIT: PRATIK SEN</span>
-                <span className="text-slate-500">20:39</span>
+              <p className="text-[8px] text-slate-400 leading-normal mb-2">
+                Outpass exit scan recorded: <strong>Alok Kumar</strong> departed Pulaha Gate. Parent notified via WhatsApp/SMS.
+              </p>
+              <div className="flex items-center justify-between text-[7px] font-extrabold text-emerald-400 uppercase">
+                <span>WhatsApp Sync: OK</span>
+                <span>100% Delivery</span>
               </div>
-              <div className="flex justify-between pb-0.5">
-                <span className="text-cyan-400">INBOUND COURIER</span>
-                <span className="text-slate-500">20:35</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Card 4: Parent Emergency Warning */}
-          <motion.div 
-            animate={{ y: [0, 14, 0] }}
-            transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
-            className="absolute bottom-12 right-2 sm:right-16 w-56 glass-panel p-4 rounded-3xl border-red-500/20 shadow-2xl z-20"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded bg-red-500/10 flex items-center justify-center">
-                <ShieldAlert className="w-3.5 h-3.5 text-red-500" />
-              </div>
-              <h4 className="text-[9px] font-black uppercase text-red-500">Guardian Guard</h4>
-            </div>
-            <p className="text-[8px] text-slate-300 leading-normal font-bold">
-              Parent Broadcast: Student has safely returned to hostel premises before 9:00 PM cutoff.
-            </p>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* TRUST SECTION */}
-      <section className="relative z-10 border-t border-b border-white/5 bg-slate-900/30 py-10 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-            Trusted Framework Built For:
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12 md:gap-16">
-            {['Universities', 'Engineering Colleges', 'Medical Colleges', 'Residential Campuses'].map((name, idx) => (
-              <motion.div 
-                key={idx}
-                whileHover={{ scale: 1.05 }}
-                className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:border-cyan-500/20 hover:bg-cyan-500/5 transition-all"
-              >
-                <div className="w-2 h-2 rounded-full bg-cyan-400" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 hover:text-white transition-colors">{name}</span>
-              </motion.div>
+      {/* 4. BRAND TRUST TICKER */}
+      <section className="relative z-10 w-full py-10 bg-black/40 border-y border-white/[0.04] overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
+          <p className="text-center text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-6">Empowering Smart Operations At Leading Campuses</p>
+          <div className="flex flex-wrap justify-center items-center gap-12 sm:gap-20 opacity-40">
+            {['VSSUT UNIVERSITY', 'CAMPUS AUTOMATION', 'IIT SECURE BLOCK', 'NIT GATE SYSTEM', 'QUANTUM CAMPUS'].map((brand) => (
+              <span key={brand} className="text-xs sm:text-sm font-black italic tracking-tighter uppercase text-slate-300 select-none">
+                {brand}
+              </span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* PROBLEM SECTION */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 sm:py-32 text-center">
-        <div className="max-w-3xl mx-auto space-y-4 mb-20">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400">
-            <span className="text-[10px] font-black uppercase tracking-widest">Legacy Loophole Diagnostic</span>
+      {/* 5. FEATURES BENTO GRID */}
+      <section id="features" className="relative z-10 max-w-7xl mx-auto px-6 py-28 space-y-16">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#00E5FF]/10 border border-[#00E5FF]/20 text-[#00E5FF] text-[8px] font-black uppercase tracking-wider">
+            Operational Blueprint
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Traditional Hostel Management is Broken.
+          <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+            Designed for University Scale
           </h2>
-          <p className="text-sm text-slate-400 max-w-2xl mx-auto">
-            Outdated paperwork, manual record-keeping, and disconnected systems endanger student security and burden campus administrators.
+          <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-xl mx-auto">
+            DORM-X integrates hardware scanning, database triggers, real-time message ciphers, and warden dashboards into a unified security network.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
+        {/* Bento Grid layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
             {
-              title: 'Manual Paper Registers',
-              desc: 'Logbooks are easily forged, loss-prone, and impossible to search or analyze during security audits.',
-              glow: 'hover:shadow-red-500/5 hover:border-red-500/20'
+              title: 'Smart Leave System',
+              desc: 'Seamless outpass filing and automation rules. Custom leave policy engines handle curfew extensions, approvals, and escalations automatically.',
+              icon: FileText,
+              color: 'from-[#00E5FF]/10 to-[#7C3AED]/5',
+              borderColor: 'hover:border-[#00E5FF]/40',
+              glow: 'shadow-[#00E5FF]/5'
             },
             {
-              title: 'Unauthorized Campus Exits',
-              desc: 'Students slipping past security checkpoints undetected due to insufficient verification steps.',
-              glow: 'hover:shadow-red-500/5 hover:border-red-500/20'
+              title: 'QR Access Control',
+              desc: 'High-speed encrypted QR keys generated dynamically on the client. Fully synchronized with security gate readers for instantaneous logging.',
+              icon: QrCode,
+              color: 'from-[#00FFB2]/10 to-[#00E5FF]/5',
+              borderColor: 'hover:border-[#00FFB2]/40',
+              glow: 'shadow-[#00FFB2]/5'
             },
             {
-              title: 'Warden-Security Loopholes',
-              desc: 'Security guards unable to cross-check outpass approval status in real-time at the gates.',
-              glow: 'hover:shadow-red-500/5 hover:border-red-500/20'
+              title: 'Emergency SOS Protocol',
+              desc: 'Instant warden alarm trigger that records user GPS location, logs audits, and alerts security staff immediately upon physical SOS clicks.',
+              icon: ShieldAlert,
+              color: 'from-red-500/10 to-[#7C3AED]/5',
+              borderColor: 'hover:border-red-500/40',
+              glow: 'shadow-red-500/5'
             },
             {
-              title: 'Delayed SOS Response',
-              desc: 'No direct alert mechanism during emergencies, leading to critical delays in securing residents.',
-              glow: 'hover:shadow-red-500/5 hover:border-red-500/20'
+              title: 'Parent Monitoring',
+              desc: 'Automated sms notification synchronization. Parents receive verified exit/entry timestamps directly to their device to close communication loops.',
+              icon: Users,
+              color: 'from-[#00FFB2]/10 to-[#7C3AED]/5',
+              borderColor: 'hover:border-[#00FFB2]/30',
+              glow: 'shadow-[#00FFB2]/5'
             },
             {
-              title: 'No Parent Transparency',
-              desc: 'Parents left in the dark about their children check-ins, exits, or delayed curfew entries.',
-              glow: 'hover:shadow-red-500/5 hover:border-red-500/20'
+              title: 'Security Operations',
+              desc: 'Live telemetry logs dashboard for guard houses. Integrates courier deliveries logging, visitor gate passes, and hardware RFID scanners.',
+              icon: ShieldCheck,
+              color: 'from-[#00E5FF]/10 to-[#7C3AED]/5',
+              borderColor: 'hover:border-[#00E5FF]/30',
+              glow: 'shadow-[#00E5FF]/5'
             },
             {
-              title: 'Clunky Leave Approvals',
-              desc: 'Physical paper routing, signatures, and phone call verification wastes administrative hours.',
-              glow: 'hover:shadow-red-500/5 hover:border-red-500/20'
+              title: 'Sentinel AI Assistant',
+              desc: 'An AI security agent explaining outpass policies, drafting daily occupancy reports, and offering automated recommendations to wardens.',
+              icon: Bot,
+              color: 'from-[#7C3AED]/10 to-[#00E5FF]/5',
+              borderColor: 'hover:border-[#7C3AED]/40',
+              glow: 'shadow-[#7C3AED]/5'
             }
-          ].map((prob, idx) => (
-            <motion.div 
-              key={idx}
-              whileHover={{ y: -6 }}
-              className={`p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 transition-all shadow-xl ${prob.glow} group`}
-            >
-              <div className="w-10 h-10 rounded-2xl bg-red-500/5 border border-red-500/20 flex items-center justify-center mb-6 group-hover:bg-red-500/10 transition-colors">
-                <span className="text-[10px] font-black text-red-500">0{idx+1}</span>
-              </div>
-              <h3 className="text-sm font-black uppercase text-white tracking-wider mb-3">{prob.title}</h3>
-              <p className="text-[11px] font-bold text-slate-400 leading-relaxed">{prob.desc}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* SOLUTION SECTION */}
-      <section id="flow" className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/5 bg-black/10 text-center">
-        <div className="max-w-3xl mx-auto space-y-4 mb-20">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-            <span className="text-[10px] font-black uppercase tracking-widest">Unified Network Orchestration</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            One Platform. Complete Control.
-          </h2>
-          <p className="text-sm text-slate-400 max-w-2xl mx-auto">
-            Connect students, wardens, security, and parents in real time through DORM-X AI for absolute visibility.
-          </p>
-        </div>
-
-        {/* Interactive Solution Flow Diagram */}
-        <div className="max-w-4xl mx-auto glass-panel p-8 sm:p-12 rounded-[2.5rem] relative overflow-hidden border-white/5 bg-slate-900/20">
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative z-20">
-            {[
-              {
-                role: 'Student',
-                action: 'Submits Outpass',
-                icon: <User className="w-5 h-5 text-cyan-400" />,
-                detail: 'Files leave details & timings via mobile.'
-              },
-              {
-                role: 'Warden',
-                action: 'Reviews & Approves',
-                icon: <Activity className="w-5 h-5 text-indigo-400" />,
-                detail: 'Authorizes outpass on command desk.'
-              },
-              {
-                role: 'Security',
-                action: 'Scans QR at Gate',
-                icon: <Shield className="w-5 h-5 text-emerald-400" />,
-                detail: 'Sweeps QR code, tapping RFID tag.'
-              },
-              {
-                role: 'Parent',
-                action: 'Receives Alert',
-                icon: <Bell className="w-5 h-5 text-purple-400" />,
-                detail: 'Gets instant SMS/push notification.'
-              }
-            ].map((node, idx) => {
-              const isActive = flowStep === idx;
-              return (
-                <div key={idx} className="relative flex flex-col items-center">
-                  {/* Glowing Connection Line (Desktop) */}
-                  {idx < 3 && (
-                    <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 z-0">
-                      {isActive && (
-                        <motion.div 
-                          initial={{ left: '0%' }}
-                          animate={{ left: '100%' }}
-                          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                          className="absolute top-0 w-8 h-full bg-cyan-400 filter blur-xs shadow-glow"
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  <motion.div 
-                    animate={isActive ? { scale: 1.05, y: -4 } : { scale: 1, y: 0 }}
-                    className={`w-20 h-20 rounded-[1.5rem] flex flex-col items-center justify-center border transition-all z-10 ${
-                      isActive 
-                        ? 'bg-slate-900 border-cyan-400 shadow-lg shadow-cyan-500/10' 
-                        : 'bg-white/[0.02] border-white/5'
-                    }`}
-                  >
-                    {node.icon}
-                  </motion.div>
-
-                  <h3 className="text-xs font-black uppercase mt-4 text-white tracking-widest">{node.role}</h3>
-                  <p className="text-[10px] font-extrabold uppercase text-cyan-400 tracking-wider mt-1">{node.action}</p>
-                  <p className="text-[9px] text-slate-500 max-w-[150px] mt-2 font-bold leading-normal">{node.detail}</p>
+          ].map((item, idx) => {
+            const Icon = item.icon;
+            return (
+              <motion.div 
+                key={idx}
+                whileHover={{ y: -6 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className={`glass-panel p-8 rounded-[2rem] border border-white/[0.06] ${item.borderColor} transition-all duration-300 text-left bg-gradient-to-br ${item.color} shadow-lg ${item.glow} group cursor-pointer relative overflow-hidden`}
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.01] rounded-full translate-x-12 -translate-y-12 group-hover:scale-110 transition-transform" />
+                <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-[#00E5FF]/10 group-hover:border-[#00E5FF]/30 transition-all">
+                  <Icon className="w-6 h-6 text-[#00E5FF] group-hover:text-white transition-colors" />
                 </div>
-              );
-            })}
-          </div>
-
-          {/* DORM-X AI core overlay */}
-          <div className="mt-12 p-5 rounded-2xl bg-white/[0.02] border border-white/5 inline-flex items-center gap-3 relative z-20">
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-              <Bot className="w-4 h-4 text-cyan-400" />
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] font-black uppercase text-white tracking-widest">Autonomous Sync Core</p>
-              <p className="text-[9px] text-emerald-400 font-extrabold uppercase tracking-wider">Sync Latency: &lt; 80ms</p>
-            </div>
-          </div>
+                <h3 className="text-lg font-black uppercase tracking-tight text-white mb-3 flex items-center gap-2">
+                  {item.title}
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                  {item.desc}
+                </p>
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 
-      {/* FEATURES SECTION (Bento Grid) */}
-      <section id="features" className="relative z-10 max-w-7xl mx-auto px-6 py-24 sm:py-32">
-        <div className="max-w-3xl mx-auto text-center space-y-4 mb-20">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-            <span className="text-[10px] font-black uppercase tracking-widest">Architectural Grid Showroom</span>
+      {/* 6. PRODUCT MODULES INTERACTIVE TAB SHOWCASE */}
+      <section id="modules" className="relative z-10 max-w-7xl mx-auto px-6 py-24 space-y-16 border-t border-white/[0.04]">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-4 text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#7C3AED]/10 border border-[#7C3AED]/20 text-[#7C3AED] text-[8px] font-black uppercase tracking-wider">
+              Control Hub Panels
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+              Interactive Workspace Modules
+            </h2>
+            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-lg">
+              Explore the four tailored dashboards connecting students, wardens, security officers, and parents in real time.
+            </p>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Campus Intelligence in Every Module.
-          </h2>
-          <p className="text-sm text-slate-400 max-w-2xl mx-auto">
-            Engineered for military-grade reliability, absolute response speeds, and beautiful user experience.
-          </p>
+
+          {/* Selector Tabs */}
+          <div className="flex flex-wrap gap-2 bg-white/[0.02] border border-white/[0.06] p-1.5 rounded-2xl self-start md:self-end">
+            {(['student', 'warden', 'security', 'parent'] as const).map((mod) => (
+              <button
+                key={mod}
+                onClick={() => setActiveModule(mod)}
+                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
+                  activeModule === mod 
+                    ? 'bg-gradient-to-r from-[#00E5FF] to-[#7C3AED] text-white shadow-lg border border-white/10'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                {mod} Module
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-          
-          {/* 1. Smart Leave Management (Wide) */}
-          <div className="md:col-span-4 glass-panel p-8 rounded-[2rem] border-white/5 flex flex-col justify-between overflow-hidden relative min-h-[300px]">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full filter blur-2xl pointer-events-none" />
-            <div>
-              <div className="w-10 h-10 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 flex items-center justify-center mb-6">
-                <Calendar className="w-5 h-5 text-cyan-400" />
-              </div>
-              <h3 className="text-sm font-black uppercase text-white tracking-wider mb-2">Smart Leave Management</h3>
-              <p className="text-[11px] font-bold text-slate-400 max-w-md leading-relaxed">
-                Replace parent calls and paper slips. Students request leaves on the app, routing instantly to the warden command queue. Approved passes appear automatically as digital tokens.
-              </p>
+        {/* Dashboard Mockup Display */}
+        <div className="glass-panel p-2.5 sm:p-5 rounded-[2.5rem] border-white/10 shadow-2xl relative overflow-hidden bg-gradient-to-b from-white/[0.02] to-transparent">
+          <div className="absolute top-0 left-0 right-0 h-11 bg-white/[0.02] border-b border-white/5 flex items-center justify-between px-6">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-red-500/30 border border-red-500/50" />
+              <span className="w-3 h-3 rounded-full bg-yellow-500/30 border border-yellow-500/50" />
+              <span className="w-3 h-3 rounded-full bg-emerald-500/30 border border-emerald-500/50" />
             </div>
-            <div className="mt-8 flex items-center gap-6 overflow-hidden">
-              <div className="flex gap-2">
-                {['Night Out', 'Day Exit', 'Home Leave'].map((t, idx) => (
-                  <span key={idx} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-[9px] uppercase tracking-wider text-slate-400 font-extrabold">{t}</span>
-                ))}
-              </div>
+            <div className="px-4 py-1 rounded-md bg-black/40 text-[8px] font-mono text-slate-500 border border-white/5 select-none uppercase tracking-widest">
+              https://dormx.alokkumarsahu.in/{activeModule}
             </div>
+            <div className="w-10" />
           </div>
 
-          {/* 2. QR Access Control */}
-          <div className="md:col-span-2 glass-panel p-8 rounded-[2rem] border-white/5 flex flex-col justify-between relative min-h-[300px]">
-            <div>
-              <div className="w-10 h-10 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex items-center justify-center mb-6">
-                <QrCode className="w-5 h-5 text-indigo-400" />
-              </div>
-              <h3 className="text-sm font-black uppercase text-white tracking-wider mb-2">QR Access Control</h3>
-              <p className="text-[11px] font-bold text-slate-400 leading-relaxed">
-                Automated QR passes refresh every 60s to prevent screenshot swapping. Taps directly into RFID hardware networks.
-              </p>
-            </div>
-            <div className="mt-8 flex items-center justify-center">
-              <div className="relative w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-400/20">
-                <QrCode className="w-10 h-10 text-indigo-400 animate-pulse" />
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Emergency SOS */}
-          <div className="md:col-span-2 glass-panel p-8 rounded-[2rem] border-red-500/10 flex flex-col justify-between relative min-h-[300px]">
-            <div>
-              <div className="w-10 h-10 rounded-2xl bg-red-500/5 border border-red-500/20 flex items-center justify-center mb-6">
-                <ShieldAlert className="w-5 h-5 text-red-500" />
-              </div>
-              <h3 className="text-sm font-black uppercase text-white tracking-wider mb-2">Emergency SOS Protocol</h3>
-              <p className="text-[11px] font-bold text-slate-400 leading-relaxed">
-                One-tap emergency broadcast that bypasses normal router queues to ping wardens and activate sirens across gate posts.
-              </p>
-            </div>
-            <div className="mt-8">
-              <span className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-[9px] font-black uppercase tracking-widest text-red-400 flex items-center justify-center gap-1.5 animate-pulse">
-                <span className="w-1.5 h-1.5 bg-red-500 rounded-full" /> Emergency System Active
-              </span>
-            </div>
-          </div>
-
-          {/* 4. Parent Portal */}
-          <div className="md:col-span-4 glass-panel p-8 rounded-[2rem] border-white/5 flex flex-col justify-between overflow-hidden relative min-h-[300px]">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full filter blur-2xl pointer-events-none" />
-            <div>
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-center mb-6">
-                <Users className="w-5 h-5 text-emerald-400" />
-              </div>
-              <h3 className="text-sm font-black uppercase text-white tracking-wider mb-2">Parent Portal Telemetry</h3>
-              <p className="text-[11px] font-bold text-slate-400 max-w-md leading-relaxed">
-                Guardians receive automated gate signals. If a student checks out, parents receive an instant message. Security sync is automated.
-              </p>
-            </div>
-            <div className="mt-8 flex gap-4 text-[10px]">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 font-extrabold uppercase">
-                <Check className="w-3.5 h-3.5" /> SMS Channel Online
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 font-extrabold uppercase">
-                <Check className="w-3.5 h-3.5" /> Call Synced
-              </div>
-            </div>
-          </div>
-
-          {/* 5. Security Command Center */}
-          <div className="md:col-span-3 glass-panel p-8 rounded-[2rem] border-white/5 flex flex-col justify-between min-h-[300px]">
-            <div>
-              <div className="w-10 h-10 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 flex items-center justify-center mb-6">
-                <ShieldCheck className="w-5 h-5 text-cyan-400" />
-              </div>
-              <h3 className="text-sm font-black uppercase text-white tracking-wider mb-2">Security SOC Desk</h3>
-              <p className="text-[11px] font-bold text-slate-400 leading-relaxed">
-                Log couriers, visitors, and guest checks. Maintain clean ledger audits that compile into historical CSV files for compliance reports.
-              </p>
-            </div>
-            <div className="mt-8 text-[9px] font-mono text-slate-400 space-y-1">
-              <p>&gt; GUEST LOGGED: INBOUND RM-402</p>
-              <p>&gt; COURIER: REGISTERED VENDOR-AMZN</p>
-            </div>
-          </div>
-
-          {/* 6. AI Assistant */}
-          <div className="md:col-span-3 glass-panel p-8 rounded-[2rem] border-white/5 flex flex-col justify-between min-h-[300px]">
-            <div>
-              <div className="w-10 h-10 rounded-2xl bg-purple-500/5 border border-purple-500/20 flex items-center justify-center mb-6">
-                <Bot className="w-5 h-5 text-purple-400" />
-              </div>
-              <h3 className="text-sm font-black uppercase text-white tracking-wider mb-2">Sentinel AI Companion</h3>
-              <p className="text-[11px] font-bold text-slate-400 leading-relaxed">
-                Decoupled conversational responder. Inspects active Prisma counts to compile system reports and outline policies instantly.
-              </p>
-            </div>
-            <div className="mt-8">
-              <span className="text-[10px] font-extrabold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-cyan-400" /> Powered by DORM-X AI Core
-              </span>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* PRODUCT MODULES (Dashboards Showcase) */}
-      <section id="modules" className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/5">
-        <div className="max-w-3xl mx-auto text-center space-y-4 mb-16">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-            <span className="text-[10px] font-black uppercase tracking-widest">Interface Telemetry Showcase</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Custom Portals for Every Stakeholder.
-          </h2>
-          <p className="text-sm text-slate-400 max-w-2xl mx-auto">
-            Experience dedicated dashboard panels tailored to students, wardens, gatekeepers, and parents.
-          </p>
-        </div>
-
-        {/* Tab Controls */}
-        <div className="flex flex-wrap justify-center gap-3 mb-12">
-          {[
-            { id: 'student', label: 'Student App', icon: <Smartphone className="w-4 h-4" /> },
-            { id: 'warden', label: 'Warden Portal', icon: <Monitor className="w-4 h-4" /> },
-            { id: 'security', label: 'Security Desk', icon: <Shield className="w-4 h-4" /> },
-            { id: 'parent', label: 'Parent Link', icon: <Users className="w-4 h-4" /> }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              id={`tab-trigger-${tab.id}`}
-              aria-label={`Switch to ${tab.label} preview`}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest cursor-pointer flex items-center gap-2 border transition-all ${
-                activeTab === tab.id
-                  ? 'bg-cyan-500 border-cyan-400 text-white shadow-lg shadow-cyan-500/15'
-                  : 'bg-white/5 border-white/5 text-slate-400 hover:text-white'
-              }`}
-            >
-              {tab.icon} {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Interactive Showcase Window */}
-        <div className="glass-panel rounded-[2.5rem] border-white/5 overflow-hidden shadow-2xl relative min-h-[400px]">
-          <div className="bg-white/[0.02] border-b border-white/5 px-6 py-4 flex items-center justify-between">
-            <div className="flex gap-2">
-              <span className="w-3 h-3 rounded-full bg-red-500/40" />
-              <span className="w-3 h-3 rounded-full bg-yellow-500/40" />
-              <span className="w-3 h-3 rounded-full bg-green-500/40" />
-            </div>
-            <div className="px-6 py-1 bg-white/5 rounded-full text-[9px] font-mono text-slate-500 select-none uppercase tracking-widest">
-              system-console://{activeTab}-hub
-            </div>
-            <RefreshCw className="w-3.5 h-3.5 text-slate-500 hover:text-cyan-400 cursor-pointer" />
-          </div>
-
-          <div className="p-8 sm:p-12">
+          <div className="pt-16 p-4 sm:p-8 min-h-[380px] flex flex-col justify-between text-left">
             <AnimatePresence mode="wait">
-              {activeTab === 'student' && (
+              {activeModule === 'student' && (
                 <motion.div 
                   key="student"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: -15 }}
                   transition={{ duration: 0.3 }}
-                  className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-left items-center"
+                  className="space-y-6"
                 >
-                  <div className="lg:col-span-5 space-y-6">
-                    <h3 className="text-xl font-black uppercase tracking-wider text-white">Student Command App</h3>
-                    <p className="text-xs text-slate-400 leading-relaxed font-bold">
-                      Keep your gate keys directly on your device. File requests, monitor live approval workflows, tap gates, and trigger SOS support in one tap.
-                    </p>
-                    <ul className="space-y-2.5 text-[10px] font-black uppercase text-slate-300">
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-cyan-400" /> Dynamic QR Pass Wallet</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-cyan-400" /> Tap-to-Exit RFID Integration</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-cyan-400" /> One-Touch SOS Security Siren</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-cyan-400" /> Instant Push Alerts & Notices</li>
-                    </ul>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
+                    <div>
+                      <h4 className="text-base font-black uppercase text-white">Student Dashboard Mockup</h4>
+                      <p className="text-[10px] text-[#00E5FF] font-black uppercase tracking-wider">Entity block: PULAHA | Room: 203</p>
+                    </div>
+                    <button className="px-4 py-2 bg-red-500/15 border border-red-500/40 text-red-400 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer hover:bg-red-500 hover:text-white transition-colors">
+                      SOS Alert Standby
+                    </button>
                   </div>
-                  <div className="lg:col-span-7 bg-slate-900/50 border border-white/5 p-6 rounded-3xl">
-                    <div className="border border-cyan-400/20 bg-cyan-500/5 p-5 rounded-2xl flex flex-col items-center">
-                      <span className="px-2 py-0.5 rounded bg-cyan-400/10 border border-cyan-400/30 text-[7px] font-black uppercase text-cyan-400 tracking-widest mb-3 animate-pulse">Scanning Enabled</span>
-                      <QrCode className="w-24 h-24 text-cyan-400 mb-2" />
-                      <p className="text-[9px] font-mono text-cyan-400 uppercase tracking-widest">PX-8290-ACTIVE</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="glass-card p-5 rounded-2xl border-white/5">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Gate Pass Wallet</p>
+                      <div className="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
+                        <QrCode className="w-10 h-10 text-[#00E5FF]" />
+                        <div>
+                          <p className="text-[10px] font-bold text-white">Active Pass</p>
+                          <p className="text-[8px] text-emerald-400 font-extrabold uppercase">APPROVED - WAITING</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="glass-card p-5 rounded-2xl border-white/5">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Attendance Rate</p>
+                      <p className="text-2xl font-black text-white">96.8%</p>
+                      <p className="text-[8px] text-[#00FFB2] font-extrabold uppercase mt-1">Status: Optimal Presence</p>
+                    </div>
+                    <div className="glass-card p-5 rounded-2xl border-white/5">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">New Applications</p>
+                      <button className="w-full py-2.5 bg-gradient-to-r from-[#00E5FF] to-[#7C3AED] hover:brightness-110 text-white rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors border border-white/5">
+                        File Outpass Pass
+                      </button>
                     </div>
                   </div>
                 </motion.div>
               )}
 
-              {activeTab === 'warden' && (
+              {activeModule === 'warden' && (
                 <motion.div 
                   key="warden"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: -15 }}
                   transition={{ duration: 0.3 }}
-                  className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-left items-center"
+                  className="space-y-6"
                 >
-                  <div className="lg:col-span-5 space-y-6">
-                    <h3 className="text-xl font-black uppercase tracking-wider text-white">Warden Approval Desk</h3>
-                    <p className="text-xs text-slate-400 leading-relaxed font-bold">
-                      Approve or deny student leave applications in real time. Track occupancy percentages, curfew return statuses, and receive notifications when students trigger alerts.
-                    </p>
-                    <ul className="space-y-2.5 text-[10px] font-black uppercase text-slate-300">
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-400" /> Digital Signatures Approval</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-400" /> Occupancy Telemetry Dashboard</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-400" /> Late Return & Curfew Warning Queue</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-indigo-400" /> Dynamic Student Database Filters</li>
-                    </ul>
-                  </div>
-                  <div className="lg:col-span-7 bg-slate-900/50 border border-white/5 p-6 rounded-3xl space-y-4">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                      <h4 className="text-[10px] font-black uppercase text-white">Pending Approvals (1)</h4>
-                      <span className="px-2 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-[7px] text-yellow-400 font-extrabold uppercase">Pending</span>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
+                    <div>
+                      <h4 className="text-base font-black uppercase text-white">Warden Admin Control Desk</h4>
+                      <p className="text-[10px] text-[#7C3AED] font-black uppercase tracking-wider">Managing block: PULAHA | ROHINI</p>
                     </div>
-                    <div className="flex justify-between items-center bg-white/[0.02] p-4 rounded-xl border border-white/5">
-                      <div>
-                        <p className="text-[10px] font-black text-white">A. Sahu (Reg: 220204)</p>
-                        <p className="text-[8px] text-slate-500 font-extrabold uppercase mt-0.5">Night Outpass - Health Issue</p>
+                    <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-full text-[8px] font-black uppercase">2 Pending Outpasses</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div className="md:col-span-8 glass-card p-5 rounded-2xl border-white/5 space-y-3">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Leave Requests Pending</p>
+                      <div className="space-y-2.5">
+                        {[
+                          { name: 'Sameer Sen [103]', reason: 'Medical Checkup', type: 'OUTPASS' },
+                          { name: 'Rohan Dev [312]', reason: 'Weekend Visit Home', type: 'VACATION' }
+                        ].map((req, idx) => (
+                          <div key={idx} className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
+                            <div>
+                              <p className="text-[10px] font-bold text-white">{req.name}</p>
+                              <p className="text-[8px] text-slate-400">Reason: {req.reason}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-md text-[8px] font-black uppercase cursor-pointer transition-colors">
+                                Approve
+                              </button>
+                              <button className="px-3 py-1 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white rounded-md text-[8px] font-black uppercase cursor-pointer transition-colors">
+                                Reject
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex gap-2">
-                        <button id="mock-approve-btn" aria-label="Mock approve outpass request" className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-lg transition-colors cursor-pointer"><Check className="w-4 h-4" /></button>
-                        <button id="mock-reject-btn" aria-label="Mock reject outpass request" className="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 rounded-lg transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
+                    </div>
+                    <div className="md:col-span-4 glass-card p-5 rounded-2xl border-white/5 flex flex-col justify-between">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Block Occupancy</p>
+                        <p className="text-3xl font-black text-white">91.4%</p>
+                        <p className="text-[8px] text-slate-400 mt-1">456 Residents Currently In Block</p>
+                      </div>
+                      <div className="h-2 w-full bg-white/5 rounded-full mt-4 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-[#00E5FF] to-[#7C3AED] rounded-full" style={{ width: '91.4%' }} />
                       </div>
                     </div>
                   </div>
                 </motion.div>
               )}
 
-              {activeTab === 'security' && (
+              {activeModule === 'security' && (
                 <motion.div 
                   key="security"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: -15 }}
                   transition={{ duration: 0.3 }}
-                  className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-left items-center"
+                  className="space-y-6"
                 >
-                  <div className="lg:col-span-5 space-y-6">
-                    <h3 className="text-xl font-black uppercase tracking-wider text-white">Security Command SOC</h3>
-                    <p className="text-xs text-slate-400 leading-relaxed font-bold">
-                      Scan incoming/outgoing QR passes, tap student RFID cards, verify live photo parameters, log visitors/deliveries, and launch building lockdowns.
-                    </p>
-                    <ul className="space-y-2.5 text-[10px] font-black uppercase text-slate-300">
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Real-time Gate QR Scanning</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> RFID & Face Verification Integration</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Dynamic Courier & Guest Ledgers</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> One-Click Total Building Lockdown</li>
-                    </ul>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
+                    <div>
+                      <h4 className="text-base font-black uppercase text-white">Security Gatekeeper Console</h4>
+                      <p className="text-[10px] text-[#00FFB2] font-black uppercase tracking-wider">Gate Status: SECURED & ON-LINE</p>
+                    </div>
+                    <button className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors">
+                      Scan QR Pass
+                    </button>
                   </div>
-                  <div className="lg:col-span-7 bg-slate-900/50 border border-white/5 p-6 rounded-3xl space-y-4">
-                    <div className="border border-emerald-500/20 bg-emerald-500/5 p-5 rounded-2xl flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/30">
-                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                        </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="glass-card p-5 rounded-2xl border-white/5 space-y-3">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Dynamic QR Access Verification</p>
+                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-4">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-400" />
                         <div>
-                          <p className="text-[10px] font-black text-white">MATCH VERIFIED</p>
-                          <p className="text-[8px] text-emerald-400 font-extrabold uppercase mt-0.5">Student Leave Approved</p>
+                          <p className="text-[10px] font-black text-white uppercase tracking-wide">VERIFIED - GRANTED EXIT</p>
+                          <p className="text-[8px] text-slate-400 font-mono mt-0.5">ALOK KUMAR | REG: 2023BTECH001</p>
                         </div>
                       </div>
-                      <span className="text-[8px] font-mono text-slate-500 uppercase font-black">Gate 01</span>
+                    </div>
+                    <div className="glass-card p-5 rounded-2xl border-white/5 space-y-3">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Recent Logs</p>
+                      <div className="space-y-2 font-mono text-[9px]">
+                        <div className="flex justify-between text-slate-300">
+                          <span>[09:41] EXIT Scan Alok Kumar</span>
+                          <span className="text-emerald-400">GRANTED</span>
+                        </div>
+                        <div className="flex justify-between text-slate-300">
+                          <span>[09:30] COURIER Amazon (Received)</span>
+                          <span className="text-[#00E5FF]">LOGGED</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
               )}
 
-              {activeTab === 'parent' && (
+              {activeModule === 'parent' && (
                 <motion.div 
                   key="parent"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: -15 }}
                   transition={{ duration: 0.3 }}
-                  className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-left items-center"
+                  className="space-y-6"
                 >
-                  <div className="lg:col-span-5 space-y-6">
-                    <h3 className="text-xl font-black uppercase tracking-wider text-white">Parent Portal Access</h3>
-                    <p className="text-xs text-slate-400 leading-relaxed font-bold">
-                      Stay connected with your child outpass schedules. Monitor real-time statuses (In-Hostel, Off-Campus, Night Leave) and receive push alerts for safety.
-                    </p>
-                    <ul className="space-y-2.5 text-[10px] font-black uppercase text-slate-300">
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-purple-400" /> Student Gate Move Notifications</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-purple-400" /> Real-time Location/Status Metrics</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-purple-400" /> Emergency Alerts Escalations</li>
-                      <li className="flex items-center gap-2"><Check className="w-4 h-4 text-purple-400" /> Integrated Warden Dial Simulator</li>
-                    </ul>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
+                    <div>
+                      <h4 className="text-base font-black uppercase text-white">Parent Security Watch Panel</h4>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Student linked: ALOK KUMAR</p>
+                    </div>
+                    <span className="px-3 py-1 bg-[#00FFB2]/10 border border-[#00FFB2]/30 text-[#00FFB2] rounded-full text-[8px] font-black uppercase">Live Updates Synced</span>
                   </div>
-                  <div className="lg:col-span-7 bg-slate-900/50 border border-white/5 p-6 rounded-3xl">
-                    <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col items-center">
-                      <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Student Location Status</p>
-                      <span className="w-20 h-20 rounded-full border-4 border-cyan-400 flex items-center justify-center font-black text-xs text-white shadow-lg shadow-cyan-500/10">IN-HOSTEL</span>
-                      <p className="text-[8px] text-slate-500 uppercase mt-3 tracking-widest font-black">Gate Verified at 18:42 PM</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="glass-card p-5 rounded-2xl border-white/5">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Student Status</p>
+                      <span className="px-2.5 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/30 rounded-md text-[8px] font-black uppercase tracking-wider">
+                        Currently Out
+                      </span>
+                      <p className="text-[8px] text-slate-400 mt-3">Exited Pulaha Gate: 09:41 AM</p>
+                    </div>
+                    <div className="glass-card p-5 rounded-2xl border-white/5">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">Leave Duration</p>
+                      <p className="text-lg font-black text-white">Short Outpass</p>
+                      <p className="text-[8px] text-slate-400 mt-1">Expected Return: 05:00 PM</p>
+                    </div>
+                    <div className="glass-card p-5 rounded-2xl border-white/5 space-y-2">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Parent Notifications Logs</p>
+                      <div className="text-[8px] text-slate-300 font-mono">
+                        <p>[09:41 AM] WhatsApp Sync Delivered</p>
+                        <p>[09:41 AM] SMS Alert Delivered</p>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -834,370 +722,425 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* LIVE ANALYTICS SECTION */}
-      <section id="analytics" className="relative z-10 max-w-7xl mx-auto px-6 py-24 bg-slate-900/30 border-t border-b border-white/5">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
-          {[
-            { value: 12450, suffix: '+', label: 'Students Managed' },
-            { value: 85290, suffix: '+', label: 'Leaves Processed' },
-            { value: 1200000, suffix: '+', label: 'Security Events Logged' },
-            { value: 100, suffix: '%', label: 'Emergency Alerts Resolved' }
-          ].map((stat, idx) => (
-            <div key={idx} className="space-y-2">
-              <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-                <AnimatedCounter value={stat.value} suffix={stat.suffix} />
-              </h3>
-              <p className="text-[9px] sm:text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* HOW IT WORKS TIMELINE */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 sm:py-32">
-        <div className="max-w-3xl mx-auto text-center space-y-4 mb-20">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-            <span className="text-[10px] font-black uppercase tracking-widest">Workflow Timeline Roadmap</span>
+      {/* 7. LIVE TELEMETRY & ANALYTICS SECTION */}
+      <section id="analytics" className="relative z-10 max-w-7xl mx-auto px-6 py-28 space-y-20 border-t border-white/[0.04]">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#00FFB2]/10 border border-[#00FFB2]/20 text-[#00FFB2] text-[8px] font-black uppercase tracking-wider">
+            Live Telemetry
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Simple. Automated. Instant.
+          <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+            System Telemetry & Scale
           </h2>
-          <p className="text-sm text-slate-400 max-w-2xl mx-auto">
-            From leave application to gate logging, DORM-X secures every touchpoint of student movement.
+          <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-xl mx-auto font-medium">
+            Monitor real-time system performance, student data access flows, and security check compliance accuracy.
           </p>
         </div>
 
-        <div className="max-w-3xl mx-auto relative pl-8 sm:pl-12 border-l border-white/5 space-y-12">
+        {/* Counter grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
           {[
-            {
-              step: 'Step 1',
-              title: 'Student Submits Outpass',
-              desc: 'Student files night out, day exit, or home leave requests on the app, setting times, destination, and details.'
-            },
-            {
-              step: 'Step 2',
-              title: 'Warden Approves Digitally',
-              desc: 'Warden receives instant pings, reviews requests, and authorizes leaves with single-click command controls.'
-            },
-            {
-              step: 'Step 3',
-              title: 'Security Scans QR at Gate',
-              desc: 'During checkout, security sweeps the student’s dynamic QR pass. System logs exit timestamp instantly.'
-            },
-            {
-              step: 'Step 4',
-              title: 'Parent Receives Notification',
-              desc: 'System triggers automatic notifications to parent phones, reporting check-out and checkout safety timestamps.'
-            },
-            {
-              step: 'Step 5',
-              title: 'System Maintained Audit Trail',
-              desc: 'Administrator records historical audit logs, compiling user checkins, checkouts, and late curfew telemetry.'
-            }
+            { label: 'Students Managed', value: 20000, suffix: '+', desc: 'Active student profiles across blocks' },
+            { label: 'Approval Accuracy', value: 98, suffix: '%', desc: 'Compliant Warden leaves decisions' },
+            { label: 'Security Events Logged', value: 50000, suffix: '+', desc: 'Encrypted audit scanner checks' },
+            { label: 'System Uptime', value: 99.9, suffix: '%', desc: 'Redundant global Cloudflare CDN' }
           ].map((item, idx) => (
-            <div key={idx} className="relative">
-              {/* Dot indicator */}
-              <div className="absolute top-1 -left-[38px] sm:-left-[54px] w-[14px] h-[14px] rounded-full bg-cyan-500 border-4 border-slate-950 shadow-md shadow-cyan-500/40 z-10" />
-              
-              <div className="glass-panel p-6 sm:p-8 rounded-[2rem] border-white/5 hover:border-cyan-500/20 hover:bg-cyan-500/5 transition-all text-left">
-                <span className="text-[8px] font-black uppercase text-cyan-400 tracking-[0.2em]">{item.step}</span>
-                <h3 className="text-xs sm:text-sm font-black uppercase text-white tracking-widest mt-1 mb-2">{item.title}</h3>
-                <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 leading-relaxed">{item.desc}</p>
+            <div key={idx} className="glass-card p-8 rounded-[2rem] border-white/5 text-left flex flex-col justify-between h-48 bg-gradient-to-b from-white/[0.01] to-transparent">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{item.label}</p>
+              <div>
+                <p className="text-4xl sm:text-5xl font-black tracking-tight text-white">
+                  <AnimatedCounter value={item.value === 99.9 ? 99 : item.value} suffix={item.suffix} delay={idx * 0.2} />
+                  {item.value === 99.9 && '.9%'}
+                </p>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wide mt-2">{item.desc}</p>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Custom Visual SVG Telemetry Chart */}
+        <div className="glass-panel p-6 sm:p-10 rounded-[2.5rem] border-white/10 bg-gradient-to-r from-white/[0.01] via-transparent to-transparent text-left relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 w-64 h-64 bg-[#00E5FF]/5 rounded-full filter blur-3xl pointer-events-none" />
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
+            <div>
+              <h4 className="text-xs font-black uppercase text-slate-400 tracking-[0.2em] mb-1">
+                Access Verification Peak Telemetry
+              </h4>
+              <p className="text-[9px] text-slate-500 font-bold uppercase">Weekly logs for exit/entry scans aggregated across security nodes</p>
+            </div>
+            <div className="flex gap-4 font-mono text-[9px] text-slate-400">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#00E5FF]" /> Exit Gates</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#7C3AED]" /> Entry Gates</span>
+            </div>
+          </div>
+
+          <div className="h-60 w-full relative">
+            <svg className="w-full h-full" viewBox="0 0 1000 240" fill="none" preserveAspectRatio="none">
+              {/* Grids */}
+              {[40, 80, 120, 160, 200].map((yVal) => (
+                <line key={yVal} x1="0" y1={yVal} x2="1000" y2={yVal} stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+              ))}
+              
+              {/* Telemetry Path 1 (Exits) */}
+              <motion.path
+                d="M 0 180 Q 150 140 300 100 T 600 60 T 900 120 L 1000 160"
+                stroke="#00E5FF"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                fill="none"
+                initial="hidden"
+                animate="visible"
+                variants={pathVariants}
+              />
+              {/* Telemetry Path 2 (Entries) */}
+              <motion.path
+                d="M 0 210 Q 150 160 300 130 T 600 110 T 900 70 L 1000 110"
+                stroke="#7C3AED"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                fill="none"
+                initial="hidden"
+                animate="visible"
+                variants={pathVariants}
+              />
+              
+              {/* Glowing circles on line peaks */}
+              <circle cx="300" cy="100" r="5" fill="#00E5FF" className="animate-ping" />
+              <circle cx="600" cy="60" r="5" fill="#00E5FF" />
+              <circle cx="900" cy="70" r="5" fill="#7C3AED" className="animate-ping" />
+            </svg>
+            <div className="absolute bottom-0 left-0 right-0 flex justify-between font-mono text-[8px] text-slate-500 pt-3 border-t border-white/5">
+              <span>MON</span>
+              <span>TUE</span>
+              <span>WED</span>
+              <span>THU</span>
+              <span>FRI</span>
+              <span>SAT</span>
+              <span>SUN</span>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* MEET DORM-X AI SECTION */}
-      <section id="ai" className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/5">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
-          <div className="lg:col-span-5 text-left space-y-6">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-              <Bot className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Autonomous Agent Core</span>
+      {/* 8. FUTURISTIC AI CORE PLAYGROUND SECTION */}
+      <section id="ai-core" className="relative z-10 max-w-7xl mx-auto px-6 py-28 grid grid-cols-1 lg:grid-cols-12 gap-16 items-center border-t border-white/[0.04]">
+        
+        {/* Left info column */}
+        <div className="lg:col-span-5 space-y-8 text-left">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#00E5FF]/10 border border-[#00E5FF]/20 text-[#00E5FF] text-[8px] font-black uppercase tracking-wider">
+            Sentinel AI Model
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+            Meet DORM-X AI Core
+          </h2>
+          <p className="text-slate-400 text-xs sm:text-sm leading-relaxed font-medium">
+            DORM-X integrates a hosted Gemini intelligence core that acts as a real-time concierge and warden support helper.
+          </p>
+
+          <div className="space-y-4">
+            {[
+              { title: 'Student Support', desc: 'Explain leave timelines, curfew rules, and outpass regulations directly via natural language dialog.' },
+              { title: 'Security Insights', desc: 'Predictive occupancy rates, scanning delays logging, and gate congestion statistics alerts.' },
+              { title: 'Smart Recommendations', desc: 'Warden approval cues flagging repeated late returns, risk patterns, or emergency history.' },
+              { title: 'Automated Reports', desc: 'One-click text compiler exporting system occupancy logs, logistics reports, and incident ciphers.' }
+            ].map((feat, idx) => (
+              <div key={idx} className="flex gap-4 items-start bg-white/[0.01] p-4 rounded-2xl border border-white/[0.04]">
+                <div className="w-8 h-8 rounded-lg bg-[#00E5FF]/10 border border-[#00E5FF]/20 flex items-center justify-center shrink-0">
+                  <Bot className="w-4 h-4 text-[#00E5FF]" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-white uppercase tracking-wide">{feat.title}</h4>
+                  <p className="text-[10px] text-slate-400 mt-1 leading-normal">{feat.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right chatbot interactive sandbox */}
+        <div className="lg:col-span-7 w-full h-[520px] glass-panel rounded-[2.5rem] border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col justify-between text-left">
+          {/* Header */}
+          <div className="p-6 bg-white/[0.02] border-b border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#00E5FF]/10 border border-[#00E5FF]/30 flex items-center justify-center">
+                <Bot className="w-4 h-4 text-[#00E5FF]" />
+              </div>
+              <div>
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-white">DORM-X Sentinel Playground</h4>
+                <p className="text-[7px] text-[#00FFB2] font-extrabold uppercase flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-[#00FFB2] rounded-full animate-ping" /> Live AI Engine Online
+                </p>
+              </div>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white leading-tight">
-              Meet DORM-X Sentinel AI.
+            <Sparkles className="w-4 h-4 text-slate-500" />
+          </div>
+
+          {/* Messages sandbox body */}
+          <div className="flex-grow overflow-y-auto p-6 space-y-4 bg-black/15 log-scroll">
+            {sandboxMessages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] p-4 rounded-2xl text-[10px] leading-relaxed font-medium ${
+                  msg.role === 'user'
+                    ? 'bg-gradient-to-tr from-[#00E5FF] to-[#7C3AED] text-white rounded-br-none shadow-md shadow-[#00E5FF]/10'
+                    : 'bg-white/[0.03] border border-white/5 text-slate-300 rounded-bl-none'
+                }`}>
+                  {msg.role === 'assistant' ? (
+                    // Simple text line output
+                    msg.content.split('\n').map((line, lIdx) => {
+                      if (line.startsWith('### ')) {
+                        return <h5 key={lIdx} className="font-extrabold text-[#00E5FF] uppercase mb-2 mt-2">{line.substring(4)}</h5>;
+                      }
+                      if (line.startsWith('- ')) {
+                        return <li key={lIdx} className="ml-3 list-disc text-slate-300 mb-1 font-bold">{line.substring(2)}</li>;
+                      }
+                      return <p key={lIdx} className="mb-1">{line}</p>;
+                    })
+                  ) : (
+                    msg.content
+                  )}
+                </div>
+              </div>
+            ))}
+            {sandboxLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white/[0.03] border border-white/5 p-4 rounded-2xl rounded-bl-none flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-[#00E5FF] rounded-full animate-bounce" />
+                  <span className="w-1.5 h-1.5 bg-[#00E5FF] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 bg-[#00E5FF] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            )}
+            <div ref={sandboxEndRef} />
+          </div>
+
+          {/* Input Form */}
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSandboxSend(sandboxQuery);
+            }}
+            className="p-4 bg-white/[0.01] border-t border-white/5 flex gap-2.5"
+          >
+            <input 
+              type="text"
+              value={sandboxQuery}
+              onChange={(e) => setSandboxQuery(e.target.value)}
+              placeholder="Ask Sentinel AI e.g. 'Outpass rule'..."
+              className="flex-grow bg-white/5 border border-white/10 outline-none text-[10px] font-bold py-3.5 px-4 rounded-xl text-white placeholder-slate-500"
+            />
+            <button 
+              type="submit"
+              disabled={!sandboxQuery.trim() || sandboxLoading}
+              className="w-11 h-11 bg-white text-black hover:bg-slate-100 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl flex items-center justify-center cursor-pointer transition-all"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
+      </section>
+
+      {/* 9. SECURITY & AUDITING SECTION */}
+      <section id="security" className="relative z-10 max-w-7xl mx-auto px-6 py-28 border-t border-white/[0.04]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+          
+          {/* Left Side: Cyber Shield Scanner */}
+          <div className="lg:col-span-6 relative h-[420px] w-full flex items-center justify-center">
+            {/* Concentric rotating scanning shields */}
+            <motion.div 
+              animate={{ rotate: 360 }}
+              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+              className="absolute w-80 h-80 rounded-full border border-dashed border-white/10 flex items-center justify-center"
+            />
+            <motion.div 
+              animate={{ rotate: -360 }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+              className="absolute w-64 h-64 rounded-full border border-dashed border-[#00E5FF]/20 flex items-center justify-center"
+            />
+            <div className="absolute w-44 h-44 bg-[#030712] border border-white/10 rounded-[3rem] shadow-2xl flex flex-col items-center justify-center">
+              <div className="absolute inset-0 bg-[#00E5FF]/5 blur-xl rounded-[3rem]" />
+              <div className="laser-line rounded-[3rem]" />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#00E5FF] to-[#7C3AED] flex items-center justify-center shadow-lg shadow-[#00E5FF]/20 mb-2 relative z-10">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <span className="text-[8px] font-black text-[#00E5FF] tracking-[0.25em] uppercase relative z-10">SHIELD ENGAGED</span>
+            </div>
+            
+            {/* Floating visual nodes */}
+            <div className="absolute top-10 left-10 p-3.5 glass-panel rounded-xl flex items-center gap-2 border-white/5 shadow-lg">
+              <Lock className="w-4 h-4 text-[#7C3AED]" />
+              <span className="text-[8px] font-black uppercase text-slate-300">End-to-End Encryption</span>
+            </div>
+            <div className="absolute bottom-10 right-10 p-3.5 glass-panel rounded-xl flex items-center gap-2 border-white/5 shadow-lg">
+              <Database className="w-4 h-4 text-[#00FFB2]" />
+              <span className="text-[8px] font-black uppercase text-slate-300">Supabase Audit Logs</span>
+            </div>
+          </div>
+
+          {/* Right Side: Description */}
+          <div className="lg:col-span-6 space-y-8 text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#00FFB2]/10 border border-[#00FFB2]/20 text-[#00FFB2] text-[8px] font-black uppercase tracking-wider">
+              Shield Architecture
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+              Enterprise-Grade Security
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed font-bold">
-              An intelligent, database-aware campus assistant integrated directly inside the hostel platform. Capable of explaining curfew rules, answering outpass FAQs, helping wardens with approvals instructions, and fetching real-time database stats.
+            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed font-medium">
+              We understand campus integrity. DORM-X utilizes advanced encryption keys and immutable logs to prevent database manipulation.
             </p>
-            <div className="flex flex-wrap gap-2 pt-2">
-              {['Outpass Rules', 'Warden Guide', 'System Metrics'].map((preset) => (
-                <button
-                  key={preset}
-                  id={`ai-preset-${preset.replace(/\s+/g, '-').toLowerCase()}`}
-                  aria-label={`Ask AI agent about ${preset.toLowerCase()}`}
-                  onClick={() => handleAiAsk(`Tell me about ${preset.toLowerCase()}`)}
-                  className="px-3 py-2 bg-white/5 border border-white/5 hover:border-cyan-500/30 hover:bg-cyan-500/5 rounded-full text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-cyan-400 cursor-pointer transition-all"
-                >
-                  {preset}
-                </button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { title: 'Role Based Access Control', desc: 'Isolated dashboards and APIs protecting student data and security logs.' },
+                { title: 'Immutable Audit Trail', desc: 'Every outpass generation, exit scan, and warden decision logs IP ciphers.' },
+                { title: 'End-to-End Encryption', desc: 'Secure database pools and TLS 1.3 socket connections across nodes.' },
+                { title: 'Unified Identity Verification', desc: 'Cross-checks face/RFID inputs at gatehouses to prevent outpass sharing.' }
+              ].map((spec, idx) => (
+                <div key={idx} className="p-5 glass-card rounded-2xl border-white/5 text-left space-y-2">
+                  <h4 className="text-xs font-black uppercase text-white tracking-wide">{spec.title}</h4>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">{spec.desc}</p>
+                </div>
               ))}
             </div>
           </div>
-
-          <div className="lg:col-span-7">
-            {/* Mock Chat Window */}
-            <div className="glass-panel rounded-[2.5rem] border-cyan-500/10 shadow-2xl relative overflow-hidden text-left max-w-xl mx-auto bg-slate-900/10">
-              {/* Header */}
-              <div className="bg-white/[0.02] border-b border-white/5 px-6 py-4 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-                  <Bot className="w-4 h-4 text-cyan-400" />
-                </div>
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-wider text-white">Sentinel AI Agent</h4>
-                  <p className="text-[7px] text-emerald-400 font-extrabold uppercase tracking-widest flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" /> Online Core
-                  </p>
-                </div>
-              </div>
-
-              {/* Chat messages */}
-              <div className="p-6 h-[250px] overflow-y-auto space-y-4 log-scroll">
-                {aiMessages.map((msg, idx) => (
-                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] p-3.5 rounded-2xl text-[10px] font-bold ${
-                      msg.role === 'user'
-                        ? 'bg-gradient-to-tr from-cyan-600 to-indigo-600 border border-cyan-400/20 text-white rounded-br-none'
-                        : 'bg-white/[0.03] border border-white/5 text-slate-300 rounded-bl-none'
-                    }`}>
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-                {aiIsTyping && (
-                  <div className="flex justify-start">
-                    <div className="bg-white/[0.03] border border-white/5 p-3 rounded-2xl rounded-bl-none flex items-center gap-1">
-                      <span className="w-1 h-1 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-1 h-1 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1 h-1 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Chat Input form */}
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleAiAsk(aiQuery);
-                }}
-                className="p-3.5 bg-white/[0.01] border-t border-white/5 flex gap-2"
-              >
-                <input
-                  id="ai-chat-input"
-                  type="text"
-                  value={aiQuery}
-                  onChange={(e) => setAiQuery(e.target.value)}
-                  placeholder="Ask Sentinel AI about policies, rules..."
-                  disabled={aiIsTyping}
-                  className="flex-grow bg-white/5 border border-white/10 outline-none text-[9px] font-bold py-3 px-4 rounded-xl text-white placeholder-slate-500 disabled:opacity-50"
-                />
-                <button
-                  id="ai-chat-submit-btn"
-                  aria-label="Submit query to Sentinel AI agent"
-                  type="submit"
-                  disabled={aiIsTyping || !aiQuery.trim()}
-                  className="w-10 h-10 bg-white text-black hover:bg-slate-100 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl flex items-center justify-center cursor-pointer transition-all disabled:cursor-not-allowed"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              </form>
-            </div>
-          </div>
         </div>
       </section>
 
-      {/* TESTIMONIALS SECTION */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/5">
-        <div className="max-w-3xl mx-auto text-center space-y-4 mb-20">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-            <span className="text-[10px] font-black uppercase tracking-widest">Platform Feedback & Trust</span>
+      {/* 10. PREMIUM TESTIMONIALS SECTION */}
+      <section className="relative z-10 max-w-7xl mx-auto px-6 py-28 border-t border-white/[0.04]">
+        <div className="text-center max-w-3xl mx-auto space-y-4 mb-20">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#7C3AED]/10 border border-[#7C3AED]/20 text-[#7C3AED] text-[8px] font-black uppercase tracking-wider">
+            Client Success
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Validated by Campus Administrators.
+          <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+            Trusted By Campus Leaders
           </h2>
-          <p className="text-sm text-slate-400 max-w-2xl mx-auto">
-            See how registrars, wardens, and safety coordinators describe their transition to DORM-X.
+          <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-xl mx-auto">
+            Read how wardens, registrars, and chief security officers optimized their hostels with DORM-X.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
-              quote: "DORM-X eliminated hours of outpass log queues. The parent notification channel provides immediate safety confirmation, restoring absolute accountability.",
-              author: "Dr. K. Sharma",
-              role: "Chief Registrar, Campus Administration"
+              quote: 'DORM-X transformed our outpass approval workflow. Leaves that used to take 2 hours of queues and paperwork are now approved by wardens in seconds.',
+              author: 'Dr. Debabrata Giri',
+              role: 'Hostel Registrar, Tech Campus',
+              stars: 5
             },
             {
-              quote: "Lockdown control triggers and automated dynamic QR pass checkers have fully secured our hostels. Gate operations are unified, reliable, and fast.",
-              author: "Prof. P. Senapati",
-              role: "Warden, Block B-3 Dorms"
+              quote: 'The real-time parent WhatsApp notification sync has solved our safety concerns. Parents know exactly when students exit or enter the gate.',
+              author: 'Prof. Sandhya Rani',
+              role: 'Chief Warden, VSSUT block',
+              stars: 5
             },
             {
-              quote: "Manual checkins are gone. The dynamic pass refresh blocks pass sharing completely. The batch offline mode continues scanning even during internet cuts.",
-              author: "Commander R. Patnaik",
-              role: "Director of Campus Security & SOC"
+              quote: 'The security log telemetry has speeded up visitor registration by 400%. We no longer use paper registers. Delivery log system is exceptional.',
+              author: 'Commandant R. K. Singh',
+              role: 'Chief Security Officer',
+              stars: 5
             }
-          ].map((testi, idx) => (
-            <div key={idx} className="glass-panel p-8 rounded-[2rem] border-white/5 flex flex-col justify-between shadow-xl">
-              <p className="text-xs text-slate-300 leading-relaxed font-bold italic mb-8">
-                "{testi.quote}"
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center font-black text-[10px] text-cyan-400 uppercase">
-                  {testi.author[4]}
+          ].map((t, idx) => (
+            <div key={idx} className="glass-panel p-8 rounded-[2rem] border-white/5 text-left flex flex-col justify-between h-72 bg-gradient-to-br from-white/[0.01] to-transparent">
+              <div className="space-y-4">
+                <div className="flex gap-1">
+                  {[...Array(t.stars)].map((_, sIdx) => (
+                    <Star key={sIdx} className="w-3.5 h-3.5 fill-[#00FFB2] text-[#00FFB2]" />
+                  ))}
                 </div>
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-wider text-white">{testi.author}</h4>
-                  <p className="text-[8px] text-slate-500 font-extrabold uppercase mt-0.5">{testi.role}</p>
-                </div>
+                <p className="text-xs text-slate-300 leading-relaxed font-semibold italic">"{t.quote}"</p>
+              </div>
+              <div className="border-t border-white/5 pt-4">
+                <p className="text-xs font-black uppercase text-white tracking-wider">{t.author}</p>
+                <p className="text-[9px] text-slate-500 font-extrabold uppercase mt-0.5">{t.role}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* SECURITY SECTION */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/5">
-        <div className="max-w-3xl mx-auto text-center space-y-4 mb-20">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-            <span className="text-[10px] font-black uppercase tracking-widest">Enterprise Cryptography Guard</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Enterprise Grade Security.
-          </h2>
-          <p className="text-sm text-slate-400 max-w-2xl mx-auto">
-            DORM-X is engineered on data isolation models, strict encryption, and regulatory protocols.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 text-left">
-          {[
-            { title: 'AES-256 Encryption', icon: <Lock className="w-5 h-5 text-cyan-400" />, desc: 'All student parameters, parent contacts, and gate sweeps are encrypted at rest and transit.' },
-            { title: 'Strict RBAC Controls', icon: <Shield className="w-5 h-5 text-cyan-400" />, desc: 'Strict role-based tokens prevent cross-domain parameter injections.' },
-            { title: 'Immutable Audit Logs', icon: <Database className="w-5 h-5 text-cyan-400" />, desc: 'Administrative operations register a secure audit log for security telemetry.' },
-            { title: 'Secure Session Auth', icon: <Key className="w-5 h-5 text-cyan-400" />, desc: 'JWT refresh token rotation protocols secure student sessions.' },
-            { title: 'GDPR / Privacy Compliant', icon: <ShieldCheck className="w-5 h-5 text-cyan-400" />, desc: 'Absolute student data privacy with strict isolation models.' }
-          ].map((sec, idx) => (
-            <div key={idx} className="glass-panel p-6 rounded-3xl border-white/5 flex flex-col justify-between shadow-lg">
-              <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center mb-4">
-                {sec.icon}
-              </div>
-              <div>
-                <h4 className="text-[10px] font-black uppercase text-white tracking-wider mb-2">{sec.title}</h4>
-                <p className="text-[8px] font-bold text-slate-400 leading-normal">{sec.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CALL TO ACTION */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 sm:py-32">
-        <div className="glass-panel rounded-[3rem] border-cyan-500/10 shadow-2xl relative overflow-hidden text-center py-20 px-6 sm:px-12 bg-slate-900/10">
+      {/* 11. AURORA CTA BANNER */}
+      <section className="relative z-10 max-w-6xl mx-auto px-6 py-12">
+        <div className="glass-panel p-10 sm:p-16 rounded-[3rem] border-[#00E5FF]/20 relative overflow-hidden text-center bg-gradient-to-r from-[#030712] via-[#00E5FF]/5 to-[#7C3AED]/5">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-gradient-to-r from-[#00E5FF]/10 to-[#7C3AED]/10 rounded-full filter blur-[100px] pointer-events-none animate-pulse" />
           
-          {/* Animated Aurora Effect */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 opacity-40">
-            <motion.div 
-              animate={{
-                rotate: 360,
-              }}
-              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-              className="absolute top-[-50%] left-[-20%] w-[140vw] h-[140vw] rounded-full bg-gradient-to-tr from-cyan-500/10 via-indigo-500/5 to-cyan-500/10 blur-[120px]" 
-            />
-          </div>
-
-          <div className="relative z-10 max-w-2xl mx-auto space-y-8">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
-              Transform Your Campus <br /> Operations Today.
+          <div className="space-y-6 relative z-10 max-w-2xl mx-auto">
+            <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+              Transform Your Campus Operations Today.
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed font-bold">
-              Unify leave requests, automate gate logs, secure student dormitories, and inform parents instantly. Join universities leading the digital telemetry transition.
+            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed font-medium">
+              Join leading universities digitizing student movements, securing gate access, and synchronizing warden controls.
             </p>
             <div className="flex flex-wrap justify-center gap-4 pt-4">
               <button 
-                id="cta-book-demo-btn"
-                aria-label="Book a product demonstration for DORM-X"
                 onClick={handleCTA}
-                className="px-8 py-4 bg-white text-black hover:bg-slate-100 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all active:scale-95 shadow-lg shadow-white/5"
+                className="px-8 py-4 bg-gradient-to-r from-[#00E5FF] to-[#7C3AED] hover:brightness-110 text-white rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all shadow-lg border border-white/10 active:scale-95"
               >
-                Book Demo Now
+                Start Free Trial
               </button>
-              <a 
-                id="cta-contact-sales-lnk"
-                aria-label="Email DORM-X sales team"
-                href="mailto:sales@dormx.in"
-                className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all active:scale-95 text-white flex items-center justify-center"
+              <button 
+                onClick={handleCTA}
+                className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all active:scale-95 text-white"
               >
-                Contact Sales
-              </a>
+                Book Demo
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="relative z-10 border-t border-white/5 bg-slate-950/40 py-16">
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-12 gap-12 text-left">
+      {/* 12. MULTI-COLUMN PREMIUM FOOTER */}
+      <footer className="relative z-10 w-full py-16 bg-[#030712] border-t border-white/[0.04] text-left">
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-10">
           
-          <div className="md:col-span-4 space-y-4">
+          {/* Logo Brand Info */}
+          <div className="col-span-2 space-y-6">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-cyan-500 rounded-xl flex items-center justify-center">
-                <Zap className="text-white w-4 h-4" />
+              <div className="w-8 h-8 bg-gradient-to-tr from-[#00E5FF] to-[#7C3AED] rounded-lg flex items-center justify-center border border-[#00E5FF]/20">
+                <Zap className="text-white w-4.5 h-4.5" />
               </div>
-              <span className="text-lg font-black italic tracking-tighter uppercase text-white">
+              <span className="text-base font-black italic tracking-tighter uppercase text-white">
                 DORM-X
               </span>
             </div>
-            <p className="text-[10px] font-bold text-slate-500 max-w-[280px] leading-relaxed">
-              Building safer and smarter campus ecosystems. AI-Powered Hostel & Campus Security Management.
+            <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
+              The Intelligent Hostel Management Platform for Modern Campuses. Automating operations, securing campuses, and syncing communications.
+            </p>
+            <p className="text-[10px] text-slate-600 font-extrabold uppercase">
+              © {new Date().getFullYear()} DORM-X INC. ALL RIGHTS RESERVED.
             </p>
           </div>
 
-          <div className="md:col-span-2 space-y-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Product</h4>
-            <ul className="space-y-2 text-[10px] font-bold text-slate-500">
-              <li><a href="#features" className="hover:text-cyan-400 transition-colors">Features</a></li>
-              <li><a href="#modules" className="hover:text-cyan-400 transition-colors">Dashboards</a></li>
-              <li><a href="#analytics" className="hover:text-cyan-400 transition-colors">Live Analytics</a></li>
-            </ul>
+          {/* Links Col 1: Product */}
+          <div className="space-y-4">
+            <h5 className="text-[10px] font-black uppercase text-white tracking-widest">Product</h5>
+            <div className="flex flex-col gap-2.5 text-xs text-slate-400">
+              <a href="#features" className="hover:text-white transition-colors">Features</a>
+              <a href="#modules" className="hover:text-white transition-colors">Dashboard Modules</a>
+              <a href="#analytics" className="hover:text-white transition-colors">Telemetry Analytics</a>
+              <a href="#ai-core" className="hover:text-white transition-colors">Sentinel AI Assistant</a>
+            </div>
           </div>
 
-          <div className="md:col-span-2 space-y-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Features</h4>
-            <ul className="space-y-2 text-[10px] font-bold text-slate-500">
-              <li><a href="#flow" className="hover:text-cyan-400 transition-colors">System Flow</a></li>
-              <li><a href="#ai" className="hover:text-cyan-400 transition-colors">Sentinel AI</a></li>
-              <li><a href="#features" className="hover:text-cyan-400 transition-colors">Emergency SOS</a></li>
-            </ul>
+          {/* Links Col 2: Resources */}
+          <div className="space-y-4">
+            <h5 className="text-[10px] font-black uppercase text-white tracking-widest">Resources</h5>
+            <div className="flex flex-col gap-2.5 text-xs text-slate-400">
+              <a href="/login" className="hover:text-white transition-colors">Student Log-in</a>
+              <a href="/login" className="hover:text-white transition-colors">Warden Control</a>
+              <a href="/login" className="hover:text-white transition-colors">Security Gate Desk</a>
+              <a href="/login" className="hover:text-white transition-colors">Parent Live Watch</a>
+            </div>
           </div>
 
-          <div className="md:col-span-2 space-y-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Documentation</h4>
-            <ul className="space-y-2 text-[10px] font-bold text-slate-500">
-              <li><a href="#" className="hover:text-cyan-400 transition-colors">API Reference</a></li>
-              <li><a href="#" className="hover:text-cyan-400 transition-colors">User Manuals</a></li>
-              <li><a href="#" className="hover:text-cyan-400 transition-colors">Integrations</a></li>
-            </ul>
+          {/* Links Col 3: Legal & Social */}
+          <div className="space-y-4">
+            <h5 className="text-[10px] font-black uppercase text-white tracking-widest">Legal</h5>
+            <div className="flex flex-col gap-2.5 text-xs text-slate-400">
+              <span className="hover:text-white transition-colors cursor-pointer">Security Protocol SOP</span>
+              <span className="hover:text-white transition-colors cursor-pointer">Privacy Matrix</span>
+              <span className="hover:text-white transition-colors cursor-pointer">Terms of Use</span>
+            </div>
           </div>
 
-          <div className="md:col-span-2 space-y-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Contact</h4>
-            <ul className="space-y-2 text-[10px] font-bold text-slate-500">
-              <li><a href="#" className="hover:text-cyan-400 transition-colors">Help Desk</a></li>
-              <li><a href="#" className="hover:text-cyan-400 transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-cyan-400 transition-colors">Terms of Use</a></li>
-            </ul>
-          </div>
-
-        </div>
-
-        <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-[9px] font-black text-slate-500 uppercase tracking-wider">
-          <span>DORM-X © 2026. All Rights Reserved.</span>
-          <span>Designed with Quantum Engineering</span>
         </div>
       </footer>
 

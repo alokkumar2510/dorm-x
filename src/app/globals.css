@@ -12,14 +12,7 @@
   --color-card-border: var(--card-border);
   --color-panel-bg: var(--panel-bg);
   --color-panel-border: var(--panel-border);
-  
-  --spacing-2xs: 4px;
-  --spacing-xs: 8px;
-  --spacing-sm: 12px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 48px;
+
 
   --font-sans: 'Plus Jakarta Sans', sans-serif;
   --font-mono: 'Geist Mono', monospace;
@@ -37,20 +30,22 @@
 
 :root {
   /* Dark mode (default - Quantum Cyber Theme) */
-  --bg-primary: #020617;
-  --bg-secondary: #090d16;
+  --bg-primary: #030712;
+  --bg-secondary: #0b0f19;
   --card-bg: rgba(255, 255, 255, 0.02);
-  --card-border: rgba(255, 255, 255, 0.05);
+  --card-border: rgba(255, 255, 255, 0.06);
   --panel-bg: rgba(255, 255, 255, 0.03);
   --panel-border: rgba(255, 255, 255, 0.08);
-  --text-primary: #f8fafc;
+  --text-primary: #ffffff;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  --brand-color: #22d3ee;
-  --brand-glow: rgba(34, 211, 238, 0.25);
-  --accent-color: #10b981;
-  --danger-color: #f43f5e;
-  --shadow-color: rgba(0, 0, 0, 0.5);
+  --brand-color: #00e5ff;
+  --brand-glow: rgba(0, 229, 255, 0.25);
+  --accent-color: #00ffb2;
+  --danger-color: #ef4444;
+  --secondary-color: #7c3aed;
+  --secondary-glow: rgba(124, 58, 237, 0.25);
+  --shadow-color: rgba(0, 0, 0, 0.6);
 }
 
 .light {
