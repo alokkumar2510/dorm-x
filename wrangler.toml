@@ -1,14 +1,7 @@
-#:schema node_modules/wrangler/config-schema.json
 name = "dorm-x-frontend"
+pages_build_output_dir = "out"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-NEXT_PUBLIC_API_URL = "https://dorm-x-backend.up.railway.app"
-
-[site]
-bucket = ".next"
-
-[build]
-command = "npx @cloudflare/next-on-pages"
-path = ".next"
+NEXT_PUBLIC_API_URL = "https://dorm-x-server-production.up.railway.app"

@@ -121,7 +121,8 @@ How can I help you today?`
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/ai/chat', {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
