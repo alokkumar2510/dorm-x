@@ -43,7 +43,7 @@ export const StudentQRWalletView: React.FC = () => {
 
   const studentsList = [
     { id: 'alok@2023btech001', name: 'Alok Kumar', reg: '2023BTECH001', hostel: 'Pulaha', room: '302' },
-    { id: 'sneha@2023btech054', name: 'Sneha Rao', reg: '2023BTECH054', hostel: 'Rohini', room: '102' }
+    { id: 'neha@2023btech054', name: 'Neha Pani', reg: '2023BTECH054', hostel: 'Rohini', room: '102' }
   ];
 
   const filtered = studentsList.filter(s => 

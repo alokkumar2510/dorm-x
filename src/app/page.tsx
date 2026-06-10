@@ -86,7 +86,7 @@ Try asking me:
   const [activeTestimonial, setActiveTestimonial] = useState(0);
 
   useEffect(() => {
-    const names = ['Alok Kumar', 'Sameer Sen', 'Sneha Rao', 'Rohan Dev', 'Priyanka Das', 'Subham Patra'];
+    const names = ['Alok Kumar', 'Sameer Sen', 'Neha Pani', 'Rohan Dev', 'Priyanka Das', 'Subham Patra'];
     const blocks = ['Pulaha', 'Rohini', 'Arundhati', 'Block-A', 'Block-B'];
     const types = ['EXIT Scan Approved', 'ENTRY Scan Logged'];
     
