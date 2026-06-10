@@ -9,7 +9,7 @@ import {
   Bell, FileSpreadsheet, Settings, Terminal, ShieldCheck, 
   ChevronDown, Search, Moon, Sun, Lock, AlertTriangle, 
   Check, ArrowRight, X, Sparkles, Clipboard, ShieldAlert,
-  HelpCircle
+  HelpCircle, LogOut
 } from 'lucide-react';
 import AIAssistant from '../ui/AIAssistant';
 
@@ -26,7 +26,7 @@ interface DashboardLayoutProps {
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  const { user, theme, toggleTheme, activeTab, setActiveTab } = useAppState();
+  const { user, theme, toggleTheme, activeTab, setActiveTab, logout } = useAppState();
   const pathname = usePathname();
   const router = useRouter();
   const [searchVal, setSearchVal] = useState('');
@@ -149,8 +149,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
           </div>
 
-          {/* User profile details */}
-          <div className="flex items-center justify-between p-1.5 rounded-xl hover:bg-white/[0.02] transition-colors cursor-pointer text-left">
+          {/* User profile details (Log Out Action) */}
+          <div 
+            onClick={logout}
+            className="flex items-center justify-between p-1.5 rounded-xl hover:bg-white/[0.02] hover:text-red-400 transition-all cursor-pointer text-left group"
+            title="Click to Log Out"
+          >
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#00E5FF]/20 to-[#7C3AED]/20 border border-white/10 flex items-center justify-center text-xs font-black text-white shadow-inner">
@@ -159,7 +163,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#00FFB2] border-2 border-[#030712]" />
               </div>
               <div>
-                <h5 className="text-[10px] font-black uppercase text-white truncate max-w-[100px]">
+                <h5 className="text-[10px] font-black uppercase text-white group-hover:text-red-400 transition-colors truncate max-w-[100px]">
                   {user ? user.name : 'Alok Kumar Sahu'}
                 </h5>
                 <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5 truncate max-w-[100px]">
@@ -167,7 +171,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </p>
               </div>
             </div>
-            <ChevronDown className="w-4 h-4 text-slate-500" />
+            <LogOut className="w-4 h-4 text-slate-500 group-hover:text-red-500 transition-colors" />
           </div>
         </div>
 
